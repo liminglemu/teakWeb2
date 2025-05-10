@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableScheduling
 @SpringBootApplication
 @EnableTransactionManagement // 启用事务管理
-@MapperScan(basePackages = "com.teak.mapper")
+@MapperScan(basePackages = "com.teak.business.mapper")
 public class TeakWeb2Application {
 
     public static void main(String[] args) {
