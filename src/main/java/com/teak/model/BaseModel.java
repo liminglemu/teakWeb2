@@ -1,4 +1,4 @@
-package com.teak.business.model;
+package com.teak.model;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;

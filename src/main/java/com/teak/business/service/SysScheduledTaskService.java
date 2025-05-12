@@ -1,8 +1,8 @@
 package com.teak.business.service;
 
 
-import com.teak.business.model.SysScheduledTask;
-import com.teak.business.model.vo.SysScheduledTaskVo;
+import com.teak.model.SysScheduledTask;
+import com.teak.model.vo.SysScheduledTaskVo;
 
 import java.util.List;
 

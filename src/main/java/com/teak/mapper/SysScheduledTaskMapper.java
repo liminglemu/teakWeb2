@@ -1,9 +1,8 @@
-package com.teak.business.mapper;
+package com.teak.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.teak.business.model.SysScheduledTask;
+import com.teak.model.SysScheduledTask;
 import org.apache.ibatis.annotations.Mapper;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 

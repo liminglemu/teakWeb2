@@ -1,9 +1,9 @@
 package com.teak.business.controller;
 
-import com.teak.business.model.SysScheduledTask;
-import com.teak.business.model.vo.SysScheduledTaskVo;
-import com.teak.system.result.GlobalResult;
 import com.teak.business.service.SysScheduledTaskService;
+import com.teak.model.SysScheduledTask;
+import com.teak.model.vo.SysScheduledTaskVo;
+import com.teak.system.result.GlobalResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

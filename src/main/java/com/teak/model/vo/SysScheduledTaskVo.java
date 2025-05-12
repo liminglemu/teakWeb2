@@ -1,4 +1,4 @@
-package com.teak.business.model.vo;
+package com.teak.model.vo;
 
 import lombok.Data;
 
