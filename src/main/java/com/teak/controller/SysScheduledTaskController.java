@@ -1,6 +1,6 @@
-package com.teak.business.controller;
+package com.teak.controller;
 
-import com.teak.business.service.SysScheduledTaskService;
+import com.teak.service.SysScheduledTaskService;
 import com.teak.model.SysScheduledTask;
 import com.teak.model.vo.SysScheduledTaskVo;
 import com.teak.system.result.GlobalResult;

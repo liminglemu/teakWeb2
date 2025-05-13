@@ -1,4 +1,4 @@
-package com.teak.business.service;
+package com.teak.service;
 
 
 import com.teak.model.SysScheduledTask;

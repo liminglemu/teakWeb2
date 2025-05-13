@@ -1,7 +1,7 @@
 package com.teak.system.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.teak.business.service.SysScheduledTaskService;
+import com.teak.service.SysScheduledTaskService;
 import com.teak.model.SysScheduledTask;
 import com.teak.system.utils.TeakUtils;
 import lombok.RequiredArgsConstructor;

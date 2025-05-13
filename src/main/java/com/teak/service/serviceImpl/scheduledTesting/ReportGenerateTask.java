@@ -1,4 +1,4 @@
-package com.teak.business.service.serviceImpl.scheduledTesting;
+package com.teak.service.serviceImpl.scheduledTesting;
 
 import com.teak.model.Article;
 import lombok.extern.slf4j.Slf4j;
@@ -24,11 +24,6 @@ public class ReportGenerateTask {
     public void generateDailyReport(String[] strings) {
         for (String string : strings) {
             log.info("数组，参数:{}", string);
-        }
-    }
-    public void generateDailyReport(List<Article> articles) {
-        for (Article article : articles) {
-            log.info("数组，参数:{}", article);
         }
     }
 }
