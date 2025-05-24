@@ -1,6 +1,7 @@
 package com.teak;
 
 import com.teak.model.vo.SysScheduledTaskVo;
+import com.teak.service.OrderProducer;
 import com.teak.service.SysScheduledTaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,8 +20,13 @@ class TeakWeb2ApplicationTests {
 
     private final SysScheduledTaskService sysScheduledTaskService;
 
+    private final OrderProducer orderProducer;
+
     public static void main(String[] args) {
 
+    }
+    @Test
+    void test3() {
     }
 
     @Test

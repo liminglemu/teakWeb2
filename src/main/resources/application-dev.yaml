@@ -10,9 +10,9 @@ spring:
     lazy-initialization: true #启用懒加载
   datasource:
     username: root
-    password: 123456
+    password: 134679
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.2.20:3306/mybatisDB?characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/MySqlDB?characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20 # 最大连接数
@@ -26,7 +26,7 @@ spring:
 
   data:
     redis:
-      host: 192.168.2.20
+      host: localhost
       port: 6379
       timeout: 5000ms
       lettuce:
@@ -35,11 +35,24 @@ spring:
           max-idle: 8   # 最大空闲连接
           min-idle: 0   # 最小空闲连接
           max-wait: 2000ms  # 获取连接最大等待时间
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+    publisher-confirm-type: correlated  # 消息确认模式
+    publisher-returns: true            # 开启消息退回
+    listener:
+      simple:
+        acknowledge-mode: manual       # 手动确认
+        concurrency: 3                 # 并发消费者数量
+        max-concurrency: 10
 mybatis-plus:
   # 确保 SqlSession 由 Spring 管理
   mapper-locations: classpath*:mapper/**/*.xml
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    #    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     default-executor-type: reuse # 重用预处理语句
     cache-enabled: true
     local-cache-scope: session
