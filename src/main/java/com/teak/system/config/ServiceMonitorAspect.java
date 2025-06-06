@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -35,7 +34,7 @@ public class ServiceMonitorAspect {
     private final ExecutorService executorService;
 
 
-    @Pointcut("execution(public * com.teak.business.service.*.*(..))")
+    @Pointcut("execution(public * com.teak.service.*.*(..))")
     public void ServiceMonitor() {
     }
 
@@ -60,20 +59,16 @@ public class ServiceMonitorAspect {
         // 参数记录
         String params = mapper.writeValueAsString(paramMap);
 
-        CompletableFuture.runAsync(() -> log.info("方法 [{}] 参数详情: {}", fullMethodName, params), executorService);
+        log.info("方法 [{}] 参数详情: {}", fullMethodName, params);
 
         // 精准计时开始
         long nanoStart = System.nanoTime();
         Object result = joinPoint.proceed();  // 仅测量业务方法
         long nanoCost = (System.nanoTime() - nanoStart) / 1_000_000;
 
-        CompletableFuture.runAsync(() -> log.info("[性能监控] {}.{} 执行耗时: {}ms", className, methodName, nanoCost));
+        log.info("[性能监控] {}.{} 执行耗时: {}ms", className, methodName, nanoCost);
 
         // 统一使用纳秒计时
-        String resultJson = mapper.writeValueAsString(result);
-
-        CompletableFuture.runAsync(() -> log.info("方法 [{}] 返回: {}", fullMethodName, resultJson));
-
         // 超时告警
         if (nanoCost > 1000) {
             log.warn("{} 超时警告！耗时 {} ms", signature.toShortString(), nanoCost);

@@ -152,7 +152,7 @@ public class TeakUtils {
         if (target == null) {
             return;
         }
-        log.debug("Copying properties from {} to {}",
+        log.info("Copying properties from {} to {}",
                 source.getClass().getSimpleName(),
                 target.getClass().getSimpleName());
         BeanUtils.copyProperties(source, target, getNullPropertyNames(source));
