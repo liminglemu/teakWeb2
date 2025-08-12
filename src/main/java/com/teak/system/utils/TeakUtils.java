@@ -38,6 +38,7 @@ public class TeakUtils {
      * @param classifier 参照的字段
      * @return 返回分组后的map
      */
+    @Deprecated(since = "弃用，用toMap", forRemoval = true)
     public <K, F> Map<K, F> oneToOneGrouping(List<F> dataList, Function<F, K> classifier) {
         ConcurrentHashMap<K, F> hashMap = new ConcurrentHashMap<>();
         for (F data : dataList) {
@@ -59,6 +60,7 @@ public class TeakUtils {
      * @param map        自定义map
      * @return 返回分组后的map
      */
+    @Deprecated(since = "弃用，用toMap", forRemoval = true)
     public <K, F> Map<K, F> oneToOneGrouping(List<F> dataList, Function<F, K> classifier, Map<K, F> map) {
         for (F data : dataList) {
             try {
@@ -115,13 +117,28 @@ public class TeakUtils {
      * @param <K>
      * @return
      */
-    public <F, K> List<F> mergeBasedOnFields(List<F> dataList, Function<F, K> function, BiFunction<F, F, F> biFunction) {
+    public <F, K> List<F> hashMergeBasedOnFields(List<F> dataList, Function<F, K> function, BiFunction<F, F, F> biFunction) {
         Map<K, F> map = new HashMap<>();
         for (F data : dataList) {
             K k = function.apply(data);
             map.merge(k, data, biFunction);
         }
         return new ArrayList<>(map.values());
+    }
+
+
+    public <F, K> List<F> LinkMergeBasedOnFields(List<F> dataList, Function<F, K> function, BiFunction<F, F, F> biFunction) {
+        Map<K, F> resultMap = new LinkedHashMap<>();
+        for (F item : dataList) {
+            K key = function.apply(item);
+            if (resultMap.containsKey(key)) {
+                // 合并已存在的对象和当前对象
+                resultMap.put(key, biFunction.apply(resultMap.get(key), item));
+            } else {
+                resultMap.put(key, item);
+            }
+        }
+        return new ArrayList<>(resultMap.values());
     }
 
 
@@ -132,8 +149,7 @@ public class TeakUtils {
      * @return
      */
     public InputStream byteToFileInPutStream(byte[] bytes) {
-        ByteArrayInputStream is = new ByteArrayInputStream(bytes);
-        return is;
+        return new ByteArrayInputStream(bytes);
     }
 
 
@@ -281,5 +297,32 @@ public class TeakUtils {
             case "short" -> short.class;
             default -> null;
         };
+    }
+
+    /**
+     * 去除小数后0并转成字符串
+     *
+     * @param stockQty
+     * @return
+     */
+    public String formatStockQty(BigDecimal stockQty) {
+        if (stockQty == null) {
+            return "0";
+        }
+
+        // 转换为字符串并去除无效的尾零
+        String formatted = stockQty.stripTrailingZeros().toPlainString();
+
+        // 如果以 . 结尾（例如 10.000 -> 10），则返回整数形式
+        // 如果包含小数点，并且小数点后全是0，则去掉小数部分
+        int dotIndex = formatted.indexOf('.');
+        if (dotIndex != -1) {
+            String decimalPart = formatted.substring(dotIndex + 1);
+            if (decimalPart.chars().allMatch(c -> c == '0')) {
+                formatted = formatted.substring(0, dotIndex);
+            }
+        }
+
+        return formatted;
     }
 }

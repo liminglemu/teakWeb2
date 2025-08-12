@@ -31,8 +31,6 @@ public class ServiceMonitorAspect {
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    private final ExecutorService executorService;
-
 
     @Pointcut("execution(public * com.teak.service.*.*(..))")
     public void ServiceMonitor() {
