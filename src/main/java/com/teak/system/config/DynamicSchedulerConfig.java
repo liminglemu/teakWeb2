@@ -1,18 +1,19 @@
 package com.teak.system.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.teak.service.SysScheduledTaskService;
+import com.teak.mapper.SysScheduledTaskMapper;
 import com.teak.model.SysScheduledTask;
+import com.teak.system.event.TaskRefreshEvent;
 import com.teak.system.utils.TeakUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.SchedulingConfigurer;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 import org.springframework.scheduling.support.CronTrigger;
 
 import java.io.Serializable;
@@ -20,6 +21,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledFuture;
 
 /**
  * Created with: IntelliJ IDEA
@@ -34,9 +36,9 @@ import java.util.concurrent.ExecutorService;
 @Configuration
 @EnableScheduling
 @RequiredArgsConstructor
-public class DynamicSchedulerConfig implements SchedulingConfigurer {
+public class DynamicSchedulerConfig implements SmartLifecycle {
 
-    private final SysScheduledTaskService sysScheduledTaskService;
+    private final SysScheduledTaskMapper sysScheduledTaskMapper;
 
     private final ApplicationContext applicationContext;
 
@@ -46,14 +48,70 @@ public class DynamicSchedulerConfig implements SchedulingConfigurer {
 
     private final TeakUtils teakUtils;
 
+    private boolean running = false;
+
+    // 存储当前所有已调度的任务
+    private ScheduledFuture<?>[] scheduledFutures = new ScheduledFuture[0];
+
     @Override
-    public void configureTasks(ScheduledTaskRegistrar registrar) {
-        registrar.setTaskScheduler(scheduler);
-        List<SysScheduledTask> tasks = sysScheduledTaskService.findByStatus(1);
-        tasks.forEach(task -> registrar.addTriggerTask(
-                createRunnable(task),
-                createTrigger(task)
-        ));
+    public void start() {
+        if (!running) {
+            refreshTasks();
+            running = true;
+            log.info("动态定时任务配置已启动");
+        }
+    }
+
+    @Override
+    public void stop() {
+        cancelTasks();
+        running = false;
+        log.info("动态定时任务配置已停止");
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running;
+    }
+
+    /**
+     * 刷新所有定时任务
+     */
+    public void refreshTasks() {
+        log.info("开始刷新定时任务");
+        // 取消所有当前任务
+        cancelTasks();
+
+        // 重新加载任务
+        List<SysScheduledTask> tasks = sysScheduledTaskMapper.findByStatus(1);
+        log.info("加载 {} 个定时任务", tasks.size());
+
+        // 创建新的任务数组
+        scheduledFutures = new ScheduledFuture[tasks.size()];
+
+        // 注册所有任务
+        for (int i = 0; i < tasks.size(); i++) {
+            SysScheduledTask task = tasks.get(i);
+            scheduledFutures[i] = scheduler.schedule(
+                    createRunnable(task),
+                    createTrigger(task)
+            );
+        }
+
+        log.info("定时任务刷新完成");
+    }
+
+    /**
+     * 取消所有已调度的任务
+     */
+    private void cancelTasks() {
+        for (ScheduledFuture<?> future : scheduledFutures) {
+            if (future != null && !future.isCancelled()) {
+                future.cancel(true);
+            }
+        }
+        scheduledFutures = new ScheduledFuture[0];
+        log.info("已取消所有定时任务");
     }
 
     private Runnable createRunnable(SysScheduledTask task) {
@@ -113,7 +171,7 @@ public class DynamicSchedulerConfig implements SchedulingConfigurer {
                 }
 
             } catch (Exception e) {
-                log.error("执行任务[{}]异常: {}", task.getTaskName(), e.getMessage());
+                log.error("执行任务[{}]异常: {}", task.getTaskName(), e.getMessage(), e);
                 throw new RuntimeException(e);
             }
         }, executorService);
@@ -124,5 +182,17 @@ public class DynamicSchedulerConfig implements SchedulingConfigurer {
             CronTrigger cronTrigger = new CronTrigger(task.getCronExpression());
             return cronTrigger.nextExecution(triggerContext);
         };
+    }
+
+    /**
+     * 监听任务刷新事件
+     */
+    @EventListener
+    public void handleTaskRefreshEvent(TaskRefreshEvent event) {
+        log.info("收到任务刷新事件");
+        if (running) {
+            refreshTasks();
+        }
+        log.info("定时任务刷新事件处理完成");
     }
 }

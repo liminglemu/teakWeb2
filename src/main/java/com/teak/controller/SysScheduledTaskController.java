@@ -1,8 +1,8 @@
 package com.teak.controller;
 
-import com.teak.service.SysScheduledTaskService;
 import com.teak.model.SysScheduledTask;
 import com.teak.model.vo.SysScheduledTaskVo;
+import com.teak.service.ScheduledTaskManager;
 import com.teak.system.result.GlobalResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -23,18 +23,24 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SysScheduledTaskController {
 
-    private final SysScheduledTaskService sysScheduledTaskService;
+    private final ScheduledTaskManager scheduledTaskManager;
 
     @GetMapping("/getAllTask")
     public GlobalResult getAllTask() {
-        List<SysScheduledTask> allTask = sysScheduledTaskService.getAllTask();
+        List<SysScheduledTask> allTask = scheduledTaskManager.getAllTasks();
         return GlobalResult.success(allTask);
     }
 
     @PostMapping("/addScheduledTask")
     public GlobalResult addScheduledTask(@RequestBody SysScheduledTaskVo sysScheduledTaskVo) {
-        sysScheduledTaskService.addScheduledTask(sysScheduledTaskVo);
+        scheduledTaskManager.addAndStartScheduledTask(sysScheduledTaskVo);
         return GlobalResult.success(null);
+    }
+
+    @PostMapping("/refreshScheduledTasks")
+    public GlobalResult refreshScheduledTasks() {
+        scheduledTaskManager.refreshScheduledTasks();
+        return GlobalResult.success("定时任务刷新成功");
     }
 
 }

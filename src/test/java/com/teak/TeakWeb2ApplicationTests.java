@@ -2,11 +2,10 @@ package com.teak;
 
 import com.teak.model.vo.SysScheduledTaskVo;
 import com.teak.service.OrderProducer;
-import com.teak.service.SysScheduledTaskService;
+import com.teak.service.impl.ScheduledTaskManagerImpl;
 import com.teak.system.utils.TimeUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,9 +21,10 @@ import java.util.Date;
 @SpringBootTest(classes = TeakWeb2Application.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TeakWeb2ApplicationTests {
 
-    private final SysScheduledTaskService sysScheduledTaskService;
 
     private final OrderProducer orderProducer;
+
+    private final ScheduledTaskManagerImpl scheduledTaskManagerImpl;
 
     private final TimeUtils timeUtils;
 
@@ -56,7 +56,7 @@ class TeakWeb2ApplicationTests {
         sysScheduledTaskVo.setParams(arrayList);
         sysScheduledTaskVo.setParameterTypes("String,String");
         sysScheduledTaskVo.setStatus(1);
-        sysScheduledTaskService.addScheduledTask(sysScheduledTaskVo);
+        scheduledTaskManagerImpl.addAndStartScheduledTask(sysScheduledTaskVo);
     }
 
     @Test
