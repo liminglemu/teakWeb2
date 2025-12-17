@@ -8,6 +8,7 @@ import com.teak.model.dto.ProductionPlanMaintenanceQueryReportDto;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.RegionUtil;
 import org.apache.poi.xssf.usermodel.*;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.junit.jupiter.api.Test;
@@ -317,6 +318,9 @@ class GenerateAnExcelTable {
         sheet.createFreezePane(4, 0);
         //设置列宽
         setColumnWidths(sheet, dailColumCount);
+        
+        // 设置合并区域的边框
+        setBordersToMergedCells(sheet);
 
         return workbook;
     }
@@ -366,6 +370,16 @@ class GenerateAnExcelTable {
         return cellStyle;
     }
 
+    // 新增创建带边框的样式方法
+    private XSSFCellStyle createBorderStyle(XSSFWorkbook workbook) {
+        XSSFCellStyle cellStyle = workbook.createCellStyle();
+        cellStyle.setBorderBottom(BorderStyle.THIN);
+        cellStyle.setBorderTop(BorderStyle.THIN);
+        cellStyle.setBorderLeft(BorderStyle.THIN);
+        cellStyle.setBorderRight(BorderStyle.THIN);
+        return cellStyle;
+    }
+
     private int getDailColumCount(List<GenerateProgressReportResultDto> dataList) {
         if (CollectionUtil.isEmpty(dataList)) {
             return 0;
@@ -406,7 +420,7 @@ class GenerateAnExcelTable {
         //E2 开始：天数编号
         for (int i = 0; i < dailyColumCount; i++) {
             XSSFCell cellE2 = row2.createCell(4 + i);
-            cellE2.setCellValue(i + 1);
+            cellE2.setCellValue("第" + (i + 1) + "天");
             cellE2.setCellStyle(headerStyle);
         }
     }
@@ -496,7 +510,7 @@ class GenerateAnExcelTable {
         actualRowCell1.setCellValue(item.getAccumulatedActual());
         actualRowCell1.setCellStyle(numberStyle);
         XSSFCell rateRowCell1 = rateRow.createCell(3);
-        rateRowCell1.setCellValue(item.getCumulativeAchievementRate().toString());
+        rateRowCell1.setCellValue(item.getCumulativeAchievementRate().doubleValue());
         rateRowCell1.setCellStyle(numberStyle);
 
         //E列：每日数据
@@ -530,12 +544,23 @@ class GenerateAnExcelTable {
 
     private void setColumnWidths(XSSFSheet sheet, int dailyColumCount) {
         sheet.setColumnWidth(0, 4000);//A列
-        sheet.setColumnWidth(0, 5000);//B列
-        sheet.setColumnWidth(0, 2000);//C列
-        sheet.setColumnWidth(0, 3000);//D列
+        sheet.setColumnWidth(1, 5000);//B列
+        sheet.setColumnWidth(2, 2000);//C列
+        sheet.setColumnWidth(3, 3000);//D列
 
         for (int i = 0; i < dailyColumCount; i++) {
             sheet.setColumnWidth(i + 4, 2000);
+        }
+    }
+    
+    // 新增方法：为合并单元格设置边框
+    private void setBordersToMergedCells(XSSFSheet sheet) {
+        for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
+            CellRangeAddress region = sheet.getMergedRegion(i);
+            RegionUtil.setBorderTop(BorderStyle.THIN, region, sheet);
+            RegionUtil.setBorderBottom(BorderStyle.THIN, region, sheet);
+            RegionUtil.setBorderLeft(BorderStyle.THIN, region, sheet);
+            RegionUtil.setBorderRight(BorderStyle.THIN, region, sheet);
         }
     }
 }
