@@ -32,8 +32,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new CustomInterceptor())
-                .addPathPatterns("/**");// 拦截所有请求
-//                .excludePathPatterns("/login"); // 排除登录接口
+                .addPathPatterns("/**")// 拦截所有请求
+                .excludePathPatterns("/swagger-ui/**", "/v3/api-docs/**"); // 排除Swagger相关路径
     }
 
     @Override

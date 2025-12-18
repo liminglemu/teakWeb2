@@ -69,6 +69,11 @@ mybatis-plus:
 oss.endpoint: oss-cn-beijing.aliyuncs.com
 oss.bucketName: dashijian
 oss.expireSeconds: 360000
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
 management:
   endpoints:
     web:

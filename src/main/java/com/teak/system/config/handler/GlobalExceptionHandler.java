@@ -56,10 +56,10 @@ public class GlobalExceptionHandler {
 
     private ConcurrentHashMap<String, Object> concurrentHashMapPut(Exception e) {
         ConcurrentHashMap<String, Object> concurrentHashMap = new ConcurrentHashMap<>(5);
-        concurrentHashMap.put("本地化消息", e.getLocalizedMessage());
-        concurrentHashMap.put("原因", e.getCause());
+        concurrentHashMap.put("本地化消息", e.getLocalizedMessage() != null ? e.getLocalizedMessage() : "N/A");
+        concurrentHashMap.put("原因", e.getCause() != null ? e.getCause() : "N/A");
         concurrentHashMap.put("类", e.getClass());
-        concurrentHashMap.put("已抑制", e.getSuppressed());
+        concurrentHashMap.put("已抑制", e.getSuppressed() != null ? e.getSuppressed() : "N/A");
         concurrentHashMap.put("哈希代码", e.hashCode());
         log.error(String.valueOf(concurrentHashMap));
         return concurrentHashMap;
