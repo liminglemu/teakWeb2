@@ -1,5 +1,6 @@
 package com.teak.util;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
@@ -35,7 +36,7 @@ public class ExcelGeneratorUtil {
      * @return Excel工作簿
      */
     public Workbook generateProgressReportWorkbook(List<GenerateProgressReportResultDto> dataList) {
-        if (CollectionUtil.isEmpty(dataList)) {
+        if (CollUtil.isEmpty(dataList)) {
             return new XSSFWorkbook();
         }
 
@@ -296,7 +297,7 @@ public class ExcelGeneratorUtil {
         ArrayList<ProductionPlanMaintenanceQueryReportDto> r6List = CollectionUtil.toList(r6AnGui, r6ShangDian, r6ChengPin);
         ArrayList<ProductionPlanMaintenanceQueryReportDto> summaryList = CollectionUtil.toList(summaryAnGui, summaryShangDian, summaryChengPin);
 
-        return CollectionUtil.list(false, new GenerateProgressReportResultDto() {{
+        return CollUtil.list(false, new GenerateProgressReportResultDto() {{
             setResultList(r7List);
         }}, new GenerateProgressReportResultDto() {{
             setResultList(r6List);
@@ -361,12 +362,12 @@ public class ExcelGeneratorUtil {
     }
 
     private int getDailyColumnCount(List<GenerateProgressReportResultDto> dataList) {
-        if (CollectionUtil.isEmpty(dataList)) {
+        if (CollUtil.isEmpty(dataList)) {
             return 0;
         }
         List<Integer> planList = dataList.get(0).getResultList().get(0).getPlanList();
 
-        return CollectionUtil.isEmpty(planList) ? 0 : planList.size();
+        return CollUtil.isEmpty(planList) ? 0 : planList.size();
     }
 
     private void createHeader(XSSFSheet sheet, int dailyColumnCount) {
