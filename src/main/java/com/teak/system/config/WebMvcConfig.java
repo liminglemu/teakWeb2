@@ -43,17 +43,17 @@ public class WebMvcConfig implements WebMvcConfigurer {
     }
 
     @Override
-    public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
-        MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
-        ObjectMapper objectMapper = new ObjectMapper();
-        SimpleModule module = new SimpleModule();
-        module.addSerializer(Long.class, new LongToStringConverter());
-
-        /*对Date数据单独进行转换处理，同时去除yml文件中的json全局转换格式*/
-        module.addSerializer(Date.class, new SimpleDateFormatConverter());
-
-        objectMapper.registerModule(module);
-        converter.setObjectMapper(objectMapper);
-        converters.add(0, converter);
+    public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
+        // 在现有转换器基础上扩展，而非替换全部，避免影响SpringDoc等框架的序列化
+        for (HttpMessageConverter<?> converter : converters) {
+            if (converter instanceof MappingJackson2HttpMessageConverter jacksonConverter) {
+                ObjectMapper objectMapper = jacksonConverter.getObjectMapper();
+                SimpleModule module = new SimpleModule();
+                module.addSerializer(Long.class, new LongToStringConverter());
+                module.addSerializer(Date.class, new SimpleDateFormatConverter());
+                objectMapper.registerModule(module);
+                break; // 只修改第一个Jackson转换器即可
+            }
+        }
     }
 }
