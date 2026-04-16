@@ -47,11 +47,16 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
     private final ExecutorService executorService;
     private final TeakUtils teakUtils;
 
-    /** 复用 ObjectMapper，避免每次执行都 new */
+    /**
+     * 复用 ObjectMapper，避免每次执行都 new
+     */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    /** params 的泛型类型引用 */
-    private static final TypeReference<List<Object>> LIST_TYPE_REF = new TypeReference<>() {};
+    /**
+     * params 的泛型类型引用
+     */
+    private static final TypeReference<List<Object>> LIST_TYPE_REF = new TypeReference<>() {
+    };
 
     private volatile boolean running = false;
     private volatile ScheduledFuture<?>[] scheduledFutures = new ScheduledFuture<?>[0];
@@ -161,17 +166,16 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
             String paramTypesStr = task.getParameterTypes();
             String taskArgsJson = task.getTaskArgs();
 
-            Object result;
 
             if (hasText(paramTypesStr)) {
                 // 传统模式: params + parameterTypes
-                result = invokeWithParamTypes(bean, methodName, paramTypesStr, task.getParams(), taskId);
+                invokeWithParamTypes(bean, methodName, paramTypesStr, task.getParams(), taskId);
             } else if (hasText(taskArgsJson)) {
                 // 推荐模式: taskArgs → 自动推断类型和参数值
-                result = invokeWithTaskArgs(bean, methodName, taskArgsJson, taskId);
+                invokeWithTaskArgs(bean, methodName, taskArgsJson, taskId);
             } else {
                 // 无参模式
-                result = invokeNoArgs(bean, methodName, taskId);
+                invokeNoArgs(bean, methodName);
             }
 
             long costMs = System.currentTimeMillis() - startTime;
@@ -193,12 +197,18 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
     /**
      * 方式1: 传统模式 — 通过 parameterTypes + params 反射调用
      */
-    private Object invokeWithParamTypes(Object bean, String methodName,
-                                        String paramTypesStr, String paramsJson, String taskId)
+    private void invokeWithParamTypes(Object bean, String methodName,
+                                      String paramTypesStr, String paramsJson, String taskId)
             throws Exception {
         log.info("[{}] 尝试执行方式1: 传统模式", taskId);
         Class<?>[] classes = resolveParameterClasses(paramTypesStr);
-        List<Object> paramValues = parseParams(paramsJson);
+
+        List<Object> paramValues;
+        if (paramsJson == null || paramsJson.isBlank()) {
+            paramValues = List.of();
+        } else {
+            paramValues = OBJECT_MAPPER.readValue(paramsJson, LIST_TYPE_REF);
+        }
 
         if (paramValues.size() != classes.length) {
             throw new RuntimeException(String.format(
@@ -208,7 +218,7 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
 
         Object[] args = convertParams(paramValues, classes, taskId);
         Method method = bean.getClass().getMethod(methodName, classes);
-        return method.invoke(bean, args);
+        method.invoke(bean, args);
     }
 
     /**
@@ -217,15 +227,20 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
      * <p>从 taskArgs JSON 中按值的位置顺序提取参数，
      * 再通过目标方法的签名自动推断每个位置的类型。
      */
-    private Object invokeWithTaskArgs(Object bean, String methodName,
-                                      String taskArgsJson, String taskId) throws Exception {
+    private void invokeWithTaskArgs(Object bean, String methodName,
+                                    String taskArgsJson, String taskId) throws Exception {
         log.info("[{}] 尝试执行方式2: 推荐模式", taskId);
         Map<String, Object> taskArgs = OBJECT_MAPPER.readValue(taskArgsJson,
                 new TypeReference<>() {
                 });
 
         Method targetMethod = findMethod(bean, methodName);
-        List<Object> orderedValues = extractOrderedValues(taskArgs);
+
+        //从 taskArgs Map 中按插入顺序提取值（排除 __ 开头的系统字段）
+        List<Object> orderedValues = taskArgs.entrySet().stream()
+                .filter(e -> !e.getKey().startsWith("__"))
+                .map(Map.Entry::getValue)
+                .toList();
         Class<?>[] types = targetMethod.getParameterTypes();
 
         if (orderedValues.size() != types.length) {
@@ -235,15 +250,15 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         }
 
         Object[] args = convertParams(orderedValues, types, taskId);
-        return targetMethod.invoke(bean, args);
+        targetMethod.invoke(bean, args);
     }
 
     /**
      * 方式3: 无参调用
      */
-    private Object invokeNoArgs(Object bean, String methodName, String taskId) throws Exception {
+    private void invokeNoArgs(Object bean, String methodName) throws Exception {
         Method method = bean.getClass().getMethod(methodName);
-        return method.invoke(bean);
+        method.invoke(bean);
     }
 
     // ============ 辅助工具方法 ============
@@ -267,15 +282,6 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         return classes;
     }
 
-    /**
-     * 解析 params JSON 为 List
-     */
-    private List<Object> parseParams(String paramsJson) throws Exception {
-        if (paramsJson == null || paramsJson.isBlank()) {
-            return List.of();
-        }
-        return OBJECT_MAPPER.readValue(paramsJson, LIST_TYPE_REF);
-    }
 
     /**
      * 类型转换：将原始参数值逐一转换为目标方法参数类型
@@ -292,15 +298,6 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         return result;
     }
 
-    /**
-     * 从 taskArgs Map 中按插入顺序提取值（排除 __ 开头的系统字段）
-     */
-    private List<Object> extractOrderedValues(Map<String, Object> taskArgs) {
-        return taskArgs.entrySet().stream()
-                .filter(e -> !e.getKey().startsWith("__"))
-                .map(Map.Entry::getValue)
-                .toList();
-    }
 
     /**
      * 查找目标方法（支持无参/有参/重载场景）
@@ -309,7 +306,8 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         // 优先无参
         try {
             return bean.getClass().getMethod(methodName);
-        } catch (NoSuchMethodException ignored) {}
+        } catch (NoSuchMethodException ignored) {
+        }
 
         // 有多个重载时取参数最多的版本
         Method[] candidates = java.util.Arrays.stream(bean.getClass().getMethods())

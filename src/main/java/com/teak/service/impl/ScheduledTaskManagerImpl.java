@@ -82,23 +82,9 @@ public class ScheduledTaskManagerImpl implements ScheduledTaskManager {
         scheduledTask.setStatus(vo.getStatus() != null ? vo.getStatus() : 1);
 
         if (useTaskArgs) {
-            // 存储为 JSON 键值对
+            // 推荐模式: 只存 taskArgs，执行层 invokeWithTaskArgs() 自动推断类型和参数值
             try {
                 scheduledTask.setTaskArgs(objectMapper.writeValueAsString(vo.getTaskArgs()));
-                // 从 __resolvedTypes 获取推断的类型
-                String[] typeNames = (String[]) vo.getTaskArgs().get("__resolvedTypes");
-                if (typeNames != null) {
-                    scheduledTask.setParameterTypes(teakUtils.resolveReferenceClassName(String.join(",", typeNames)));
-                    // 只存储实际参数值（排除 __resolvedTypes 等系统字段），按位置顺序取值
-                }
-                // params: 按插入顺序提取纯参数值（排除以 __ 开头的系统字段）
-                List<Object> paramList = new ArrayList<>();
-                for (Map.Entry<String, Object> entry : vo.getTaskArgs().entrySet()) {
-                    if (!entry.getKey().startsWith("__")) {
-                        paramList.add(entry.getValue());
-                    }
-                }
-                scheduledTask.setParams(objectMapper.writeValueAsString(paramList));
             } catch (JsonProcessingException e) {
                 throw new RuntimeException("taskArgs序列化失败: " + e.getMessage(), e);
             }
