@@ -55,7 +55,16 @@ public class SysScheduledTask extends BaseModel implements Serializable {
 
     /**
      * 方法参数类型数组，用逗号分隔例如：String.class,Integer.class
+     * @deprecated 使用 taskArgs 替代，更简洁的JSON键值对格式
      */
+    @Deprecated
     private String parameterTypes;
+
+    /**
+     * 任务参数（JSON键值对格式）
+     * 示例: {"startTime":"2022-04-01 00:00:00","endTime":"2024-08-01 00:00:00"}
+     * 通过方法参数上的@Param注解自动匹配，无需手动指定parameterTypes
+     */
+    private String taskArgs;
 
 }

@@ -47,8 +47,9 @@ class TeakWeb2ApplicationTests {
     void test2() {
         SysScheduledTaskVo sysScheduledTaskVo = new SysScheduledTaskVo();
         sysScheduledTaskVo.setTaskName("设备故障记录服务");
-        sysScheduledTaskVo.setBeanName("deviceFaultRecordsServiceImpl");
-        sysScheduledTaskVo.setMethodName("getDeviceFaultRecords");
+//        sysScheduledTaskVo.setBeanName("deviceFaultRecordsServiceImpl");
+//        sysScheduledTaskVo.setMethodName("getDeviceFaultRecords");
+        sysScheduledTaskVo.setMethodPath("deviceFaultRecordsServiceImpl.getDeviceFaultRecords");
         sysScheduledTaskVo.setCronExpression("0/5 * * * * ?");
         ArrayList<Serializable> arrayList = new ArrayList<>();
         arrayList.add("2020-01-01 00:00:00");

@@ -1,5 +1,6 @@
 package com.teak.mapper;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.teak.model.SysScheduledTask;
 import org.apache.ibatis.annotations.Mapper;
@@ -18,6 +19,14 @@ import java.util.List;
 @Mapper
 public interface SysScheduledTaskMapper extends BaseMapper<SysScheduledTask> {
     List<SysScheduledTask> getAllTask();
-
     List<SysScheduledTask> findByStatus(int i);
+
+    /** 根据任务名查询 */
+    default SysScheduledTask selectByTaskName(String taskName) {
+        LambdaQueryWrapper<SysScheduledTask> queryWrapper = new LambdaQueryWrapper<SysScheduledTask>()
+                .eq(SysScheduledTask::getTaskName, taskName)
+                .last("LIMIT 1");
+        return selectOne(queryWrapper);
+
+    }
 }

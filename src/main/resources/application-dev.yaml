@@ -61,6 +61,8 @@ spring:
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
   configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+#    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl  生成环境使用避免大量日志
     default-executor-type: reuse # 重用预处理语句
     cache-enabled: true
     local-cache-scope: session
