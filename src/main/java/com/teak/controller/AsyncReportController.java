@@ -6,7 +6,6 @@ import cn.hutool.core.util.StrUtil;
 import com.teak.model.dto.GenerateProgressReportResultDto;
 import com.teak.service.AsyncReportService;
 import com.teak.service.ExcelReportService;
-import com.teak.service.impl.AsyncReportServiceImpl;
 import com.teak.system.result.GlobalResult;
 import com.teak.util.DataGeneratorUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,8 +29,6 @@ import java.util.concurrent.CompletableFuture;
 public class AsyncReportController {
 
     private final AsyncReportService asyncReportService;
-
-    private final AsyncReportServiceImpl asyncReportServiceImpl;
 
     private final ExcelReportService excelReportService;
 
@@ -143,7 +140,7 @@ public class AsyncReportController {
         List<GenerateProgressReportResultDto> testData = excelReportService.getProgressReportTestData();
 
         // 执行组合任务
-        CompletableFuture<Void> future = asyncReportServiceImpl.generateReportAndSendEmailAsync(testData, email)
+        CompletableFuture<Void> future = asyncReportService.generateReportAndSendEmailAsync(testData, email)
                 .thenAccept(result -> {
                     if (result) {
                         log.info("组合任务执行成功");
@@ -173,7 +170,7 @@ public class AsyncReportController {
         List<GenerateProgressReportResultDto> testData = excelReportService.getProgressReportTestData();
 
         // 执行并行任务
-        CompletableFuture<Void> future = asyncReportServiceImpl.processMultipleTasksInParallel(testData)
+        CompletableFuture<Void> future = asyncReportService.processMultipleTasksInParallel(testData)
                 .thenAccept(results -> {
                     log.info("并行任务执行完成，结果: {}", results);
                 })

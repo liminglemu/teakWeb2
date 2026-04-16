@@ -33,4 +33,20 @@ public interface AsyncReportService {
      * @return CompletableFuture<Boolean> 发送结果
      */
     CompletableFuture<Boolean> sendReportEmailAsync(String email, String subject, String content);
+    
+    /**
+     * 组合多个异步任务：生成报表并发送邮件
+     * @param dataList 报表数据
+     * @param email 邮箱地址
+     * @return CompletableFuture<Boolean> 处理结果
+     */
+    CompletableFuture<Boolean> generateReportAndSendEmailAsync(
+            List<GenerateProgressReportResultDto> dataList, String email);
+    
+    /**
+     * 并行处理多个任务
+     * @param dataList 数据列表
+     * @return CompletableFuture<List<Boolean>> 处理结果列表
+     */
+    CompletableFuture<List<Boolean>> processMultipleTasksInParallel(List<GenerateProgressReportResultDto> dataList);
 }

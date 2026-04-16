@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @date 2023 /2/19
  */
 @Slf4j
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "com.teak.controller")
 public class GlobalExceptionHandler {
 
     /**
