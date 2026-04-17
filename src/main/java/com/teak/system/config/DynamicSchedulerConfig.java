@@ -1,7 +1,10 @@
 package com.teak.system.config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.text.CharSequenceUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.teak.mapper.SysScheduledTaskMapper;
 import com.teak.model.SysScheduledTask;
 import com.teak.system.event.TaskRefreshEvent;
@@ -46,17 +49,6 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
     private final ThreadPoolTaskScheduler scheduler;
     private final ExecutorService executorService;
     private final TeakUtils teakUtils;
-
-    /**
-     * 复用 ObjectMapper，避免每次执行都 new
-     */
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    /**
-     * params 的泛型类型引用
-     */
-    private static final TypeReference<List<Object>> LIST_TYPE_REF = new TypeReference<>() {
-    };
 
     private volatile boolean running = false;
     private volatile ScheduledFuture<?>[] scheduledFutures = new ScheduledFuture<?>[0];
@@ -153,9 +145,9 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
     }
 
     /**
-     * 执行单个定时任务的核心方法
+     * 执行单个定时任务的核心方法（公开供手动调用）
      */
-    private void executeTask(SysScheduledTask task) {
+    public void executeTask(SysScheduledTask task) {
         String taskId = task.getTaskName();
         long startTime = System.currentTimeMillis();
         log.info("[{}] 开始执行", taskId);
@@ -167,10 +159,10 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
             String taskArgsJson = task.getTaskArgs();
 
 
-            if (hasText(paramTypesStr)) {
+            if (CharSequenceUtil.isNotBlank(paramTypesStr)) {
                 // 传统模式: params + parameterTypes
                 invokeWithParamTypes(bean, methodName, paramTypesStr, task.getParams(), taskId);
-            } else if (hasText(taskArgsJson)) {
+            } else if (CharSequenceUtil.isNotBlank(taskArgsJson)) {
                 // 推荐模式: taskArgs → 自动推断类型和参数值
                 invokeWithTaskArgs(bean, methodName, taskArgsJson, taskId);
             } else {
@@ -204,10 +196,10 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         Class<?>[] classes = resolveParameterClasses(paramTypesStr);
 
         List<Object> paramValues;
-        if (paramsJson == null || paramsJson.isBlank()) {
-            paramValues = List.of();
+        if (StrUtil.isBlank(paramsJson)) {
+            paramValues = CollUtil.newArrayList();
         } else {
-            paramValues = OBJECT_MAPPER.readValue(paramsJson, LIST_TYPE_REF);
+            paramValues = JSONUtil.toList(paramsJson, Object.class);
         }
 
         if (paramValues.size() != classes.length) {
@@ -230,17 +222,17 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
     private void invokeWithTaskArgs(Object bean, String methodName,
                                     String taskArgsJson, String taskId) throws Exception {
         log.info("[{}] 尝试执行方式2: 推荐模式", taskId);
-        Map<String, Object> taskArgs = OBJECT_MAPPER.readValue(taskArgsJson,
-                new TypeReference<>() {
-                });
+        Map<String, Object> taskArgs = JSONUtil.toBean(taskArgsJson, Map.class);
 
         Method targetMethod = findMethod(bean, methodName);
 
         //从 taskArgs Map 中按插入顺序提取值（排除 __ 开头的系统字段）
-        List<Object> orderedValues = taskArgs.entrySet().stream()
-                .filter(e -> !e.getKey().startsWith("__"))
-                .map(Map.Entry::getValue)
-                .toList();
+        List<Object> orderedValues = CollUtil.newArrayList();
+        for (Map.Entry<String, Object> entry : taskArgs.entrySet()) {
+            if (!entry.getKey().startsWith("__")) {
+                orderedValues.add(entry.getValue());
+            }
+        }
         Class<?>[] types = targetMethod.getParameterTypes();
 
         if (orderedValues.size() != types.length) {
@@ -291,7 +283,8 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         for (int i = 0; i < rawValues.size(); i++) {
             Object rawValue = rawValues.get(i);
             Class<?> targetType = targetTypes[i];
-            result[i] = OBJECT_MAPPER.convertValue(rawValue, targetType);
+            // Hutool BeanUtil.toBean 支持自动类型转换
+            result[i] = BeanUtil.toBean(rawValue, targetType);
             log.debug("[{}] 参数[{}] {} -> {}: {}", taskId, i,
                     rawValue.getClass().getSimpleName(), targetType.getSimpleName(), result[i]);
         }
@@ -327,10 +320,10 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         try {
             Object bean = applicationContext.getBean(task.getBeanName());
             String paramTypes = task.getParameterTypes();
-            if (hasText(paramTypes)) {
+            if (CharSequenceUtil.isNotBlank(paramTypes)) {
                 resolveParameterClasses(paramTypes);
                 bean.getClass().getMethod(task.getMethodName(), resolveParameterClasses(paramTypes));
-            } else if (hasText(task.getTaskArgs())) {
+            } else if (CharSequenceUtil.isNotBlank(task.getTaskArgs())) {
                 findMethod(bean, task.getMethodName());
             } else {
                 bean.getClass().getMethod(task.getMethodName());
@@ -353,9 +346,5 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         if (running) {
             refreshTasks();
         }
-    }
-
-    private static boolean hasText(String str) {
-        return str != null && !str.isBlank();
     }
 }

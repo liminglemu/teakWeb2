@@ -8,8 +8,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -139,5 +141,74 @@ public class SysScheduledTaskController {
      * cron 预设内部类
      */
     private record CronPreset(String label, String expression) {
+    }
+
+    // ==================== 任务一：手动执行 ====================
+
+    @PostMapping("/execute/{id}")
+    @Operation(summary = "手动执行定时任务", description = "立即触发执行指定ID的定时任务一次（异步）")
+    public GlobalResult executeManually(@Parameter(description = "任务ID") @PathVariable Long id) {
+        try {
+            scheduledTaskManager.executeTaskManually(id);
+            return GlobalResult.success(null, "任务已触发执行");
+        } catch (IllegalArgumentException e) {
+            return GlobalResult.error(e.getMessage());
+        } catch (Exception e) {
+            return GlobalResult.error("执行失败: " + e.getMessage());
+        }
+    }
+
+    // ==================== 停止 & 启动 ====================
+
+    @PostMapping("/stop/{id}")
+    @Operation(summary = "停止定时任务", description = "将指定任务状态改为0（停用），并刷新调度器使变更立即生效")
+    public GlobalResult stopTask(@Parameter(description = "任务ID") @PathVariable Long id) {
+        try {
+            scheduledTaskManager.stopTask(id);
+            return GlobalResult.success(null, "任务已停止");
+        } catch (IllegalArgumentException e) {
+            return GlobalResult.error(e.getMessage());
+        } catch (Exception e) {
+            return GlobalResult.error("停止失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/start/{id}")
+    @Operation(summary = "启动定时任务", description = "将指定任务状态改为1（启用），并刷新调度器使变更立即生效")
+    public GlobalResult startTask(@Parameter(description = "任务ID") @PathVariable Long id) {
+        try {
+            scheduledTaskManager.startTask(id);
+            return GlobalResult.success(null, "任务已启动");
+        } catch (IllegalArgumentException e) {
+            return GlobalResult.error(e.getMessage());
+        } catch (Exception e) {
+            return GlobalResult.error("启动失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/executeInRange")
+    @Operation(
+            summary = "区间补执行定时任务",
+            description = "在指定的过去时间区间内，根据cron表达式计算所有本应触发的执行时间点并逐一补执行。" +
+                    "仅支持过去的日期范围。系统会自动将taskArgs中的时间参数替换为当天对应的时间值。"
+    )
+    public GlobalResult executeInRange(
+            @Parameter(description = "任务ID") @RequestParam Long id,
+            @Parameter(description = "区间开始时间(含), 格式: yyyy-MM-dd HH:mm:ss") @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+            @Parameter(description = "区间结束时间(含), 格式: yyyy-MM-dd HH:mm:ss，不能是未来时间") @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime
+    ) {
+        try {
+            ScheduledTaskManager.ExecutionResult result = scheduledTaskManager.executeTaskInRange(id, startTime, endTime);
+            if (result.triggerCount() == 0) {
+                return GlobalResult.success(result, "该区间内无触发时间点");
+            }
+            return GlobalResult.success(result,
+                    String.format("补执行完成: 共触发 %d 次 | 时间点: %s",
+                            result.triggerCount(), result.triggeredTimes()));
+        } catch (IllegalArgumentException e) {
+            return GlobalResult.error(e.getMessage());
+        } catch (Exception e) {
+            return GlobalResult.error("补执行失败: " + e.getMessage());
+        }
     }
 }
