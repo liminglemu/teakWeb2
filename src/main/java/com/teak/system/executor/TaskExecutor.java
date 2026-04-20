@@ -68,7 +68,7 @@ public class TaskExecutor {
 
         try {
             // 2. 反射调用业务方法（三种模式合一）
-            doInvoke(task, taskName, fireTime);
+            doInvoke(task, taskName);
 
             // 3. 成功
             finishLog(logEntity, startTime, true, null);
@@ -126,10 +126,8 @@ public class TaskExecutor {
 
     /**
      * 反射调用目标方法 — 三种模式自动路由（一个方法内完成）
-     *
-     * @param fireTime 触发执行时间，用于自动注入目标方法的 LocalDateTime 参数
      */
-    private void doInvoke(SysScheduledTask task, String taskName, LocalDateTime fireTime) throws Exception {
+    private void doInvoke(SysScheduledTask task, String taskName) throws Exception {
         Object bean = applicationContext.getBean(task.getBeanName());
         String methodName = task.getMethodName();
         String paramTypesStr = task.getParameterTypes();
@@ -137,10 +135,10 @@ public class TaskExecutor {
 
         if (CharSequenceUtil.isNotBlank(paramTypesStr)) {
             // 模式1: 传统 parameterTypes + params
-            invokeByParamTypes(bean, methodName, paramTypesStr, task.getParams(), taskName, fireTime);
+            invokeByParamTypes(bean, methodName, paramTypesStr, task.getParams(), taskName);
         } else if (CharSequenceUtil.isNotBlank(taskArgsJson)) {
             // 模式2: 推荐 taskArgs（JSON键值对，自动类型推断）
-            invokeByTaskArgs(bean, methodName, taskArgsJson, taskName, fireTime);
+            invokeByTaskArgs(bean, methodName, taskArgsJson, taskName);
         } else {
             // 模式3: 无参
             Method method = bean.getClass().getMethod(methodName);
@@ -150,11 +148,10 @@ public class TaskExecutor {
 
     /**
      * 模式1: 通过 parameterTypes 字符串解析参数类型 + params JSON 取值
-     * <p>自动注入：若方法最后一个参数是 LocalDateTime，自动填入 fireTime（用户无需在 params 中传）
      */
     private void invokeByParamTypes(Object bean, String methodName,
                                     String paramTypesStr, String paramsJson,
-                                    String taskName, LocalDateTime fireTime) throws Exception {
+                                    String taskName) throws Exception {
         log.info("[{}] 模式1: 传统 parameterTypes", taskName);
         Class<?>[] classes = resolveParameterClasses(paramTypesStr);
 
@@ -162,37 +159,22 @@ public class TaskExecutor {
                 ? CollUtil.newArrayList()
                 : JSONUtil.toList(paramsJson, Object.class);
 
-        // 自动注入 fireTime：如果方法最后一个参数是 LocalDateTime，且用户没传够参数，则自动补上
-        boolean autoInjectFireTime = classes.length > 0
-                && classes[classes.length - 1] == LocalDateTime.class
-                && paramValues.size() == classes.length - 1;
-
-        if (!autoInjectFireTime && paramValues.size() != classes.length) {
+        if (paramValues.size() != classes.length) {
             throw new RuntimeException(String.format(
                     "参数个数不匹配: 需要%d个(%s)，实际传入%d个",
                     classes.length, paramTypesStr, paramValues.size()));
         }
 
         Object[] args = convertParams(paramValues, classes, taskName);
-        if (autoInjectFireTime) {
-            // 将 fireTime 作为最后一个参数注入
-            Object[] newArgs = new java.util.Arrays.copyOf(args, args.length + 1);
-            newArgs[args.length] = fireTime;
-            args = newArgs;
-            log.info("[{}] 自动注入 fireTime={} 到最后一个 LocalDateTime 参数", taskName, fireTime);
-        }
-
         Method method = bean.getClass().getMethod(methodName, classes);
         method.invoke(bean, args);
     }
 
     /**
      * 模式2: 从 taskArgs JSON 按位置取值 + 自动推断目标类型
-     * <p>自动注入：若方法最后一个参数是 LocalDateTime 且 taskArgs 中参数个数少1个，自动补上 fireTime
      */
     private void invokeByTaskArgs(Object bean, String methodName,
-                                  String taskArgsJson, String taskName,
-                                  LocalDateTime fireTime) throws Exception {
+                                  String taskArgsJson, String taskName) throws Exception {
         log.info("[{}] 模式2: taskArgs 自动推断", taskName);
         Map<String, Object> taskArgs = JSONUtil.toBean(taskArgsJson, Map.class);
         Method targetMethod = findMethod(bean, methodName);
@@ -207,25 +189,13 @@ public class TaskExecutor {
 
         Class<?>[] types = targetMethod.getParameterTypes();
 
-        // 自动注入 fireTime：最后一个参数是 LocalDateTime，且用户少传了一个参数
-        boolean autoInjectFireTime = types.length > 0
-                && types[types.length - 1] == LocalDateTime.class
-                && orderedValues.size() == types.length - 1;
-
-        if (!autoInjectFireTime && orderedValues.size() != types.length) {
+        if (orderedValues.size() != types.length) {
             throw new RuntimeException(String.format(
                     "taskArgs参数个数不匹配: 方法需要%d个参数，提供了%d个",
                     types.length, orderedValues.size()));
         }
 
         Object[] args = convertParams(orderedValues, types, taskName);
-        if (autoInjectFireTime) {
-            Object[] newArgs = new java.util.Arrays.copyOf(args, args.length + 1);
-            newArgs[args.length] = fireTime;
-            args = newArgs;
-            log.info("[{}] 自动注入 fireTime={} 到最后一个 LocalDateTime 参数", taskName, fireTime);
-        }
-
         targetMethod.invoke(bean, args);
     }
 
@@ -264,15 +234,15 @@ public class TaskExecutor {
         try {
             return bean.getClass().getMethod(methodName);
         } catch (NoSuchMethodException ignored) {
-        }
 
-        Method[] candidates = java.util.Arrays.stream(bean.getClass().getMethods())
-                .filter(m -> m.getName().equals(methodName))
-                .toArray(Method[]::new);
-        if (candidates.length == 0) {
-            throw new NoSuchMethodException(methodName);
+            Method[] candidates = java.util.Arrays.stream(bean.getClass().getMethods())
+                    .filter(m -> m.getName().equals(methodName))
+                    .toArray(Method[]::new);
+            if (candidates.length == 0) {
+                throw new NoSuchMethodException(methodName);
+            }
+            java.util.Arrays.sort(candidates, java.util.Comparator.comparingInt(m -> -m.getParameterCount()));
+            return candidates[0];
         }
-        java.util.Arrays.sort(candidates, java.util.Comparator.comparingInt(m -> -m.getParameterCount()));
-        return candidates[0];
     }
 }

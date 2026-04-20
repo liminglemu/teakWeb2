@@ -1,6 +1,5 @@
 package com.teak.model;
 
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.teak.system.annotation.SnowflakeAlgorithm;
 import lombok.Data;
@@ -12,27 +11,19 @@ import java.io.Serializable;
  * Created with: IntelliJ IDEA
  *
  * @Author: li zheng
- * @Date: 2025/2/27 00:01
- * @Project: teakWeb
- * @File: Article.java
+ * @Date: 2026/4/20 10:40
+ * @Project: teakWeb2
+ * @File: WebUser.java
  * @Description:
  */
 @EqualsAndHashCode(callSuper = true)
-@TableName(value = "article")
+@TableName(value = "web_user")
 @Data
-public class Article extends BaseModel implements Serializable {
+public class WebUser extends BaseModel implements Serializable {
     @SnowflakeAlgorithm
     private Long id;
 
-    /**
-     * 文章分标题
-     */
-    private String title;
+    private String userName;
 
-    /**
-     * 文章分类Id
-     */
-    private String articleCategoryName;
-
-    private Long userId;
+    private String userPassword;
 }
