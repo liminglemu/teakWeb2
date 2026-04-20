@@ -11,16 +11,16 @@ import lombok.Getter;
  * @date 2023 /2/19
  */
 @Getter
-public class GlobalResult {
+public class GlobalResult<T> {
 
     private Integer code;
     private String message;
-    private Object data = null;
+    private T data = null;
 
 
     // 静态工厂方法（线程安全入口）
-    public static GlobalResult create() {
-        return new GlobalResult();
+    public static <T> GlobalResult<T> create() {
+        return new GlobalResult<>();
     }
 
     /**
@@ -39,66 +39,71 @@ public class GlobalResult {
     private static class InnClass {
         private static final GlobalResult globalResult = new GlobalResult();
     }*/
-    public static GlobalResult success() {
+    public static GlobalResult<Object> success() {
         return create()
                 .setCode(GlobalResultEnums.SUCCESS.getCode())
                 .setMessage(GlobalResultEnums.SUCCESS.getMessage());
     }
 
-    public static GlobalResult success(Object value) {
-        return create()
+    @SuppressWarnings("unchecked")
+    public static <T> GlobalResult<T> success(T value) {
+        return (GlobalResult<T>) create()
                 .setCode(GlobalResultEnums.SUCCESS.getCode())
                 .setMessage(GlobalResultEnums.SUCCESS.getMessage())
                 .setData(value);
     }
 
-    public static GlobalResult success(Object value, String message) {
-        return create()
+    @SuppressWarnings("unchecked")
+    public static <T> GlobalResult<T> success(T value, String message) {
+        return (GlobalResult<T>) create()
                 .setCode(GlobalResultEnums.SUCCESS.getCode())
                 .setMessage(message)
                 .setData(value);
     }
 
-    public static GlobalResult error() {
+    public static GlobalResult<Object> error() {
         return create()
                 .setCode(GlobalResultEnums.FAIL.getCode())
                 .setMessage(GlobalResultEnums.FAIL.getMessage());
     }
 
-    public static GlobalResult error(Object value) {
-        return create()
+    @SuppressWarnings("unchecked")
+    public static <T> GlobalResult<T> error(T value) {
+        return (GlobalResult<T>) create()
                 .setCode(GlobalResultEnums.FAIL.getCode())
                 .setMessage(GlobalResultEnums.FAIL.getMessage())
                 .setData(value);
     }
 
-    public static GlobalResult error(Object value, String message) {
-        return create()
+    @SuppressWarnings("unchecked")
+    public static <T> GlobalResult<T> error(T value, String message) {
+        return (GlobalResult<T>) create()
                 .setCode(GlobalResultEnums.FAIL.getCode())
                 .setMessage(message)
                 .setData(value);
     }
 
     // 重定向响应
-    public static GlobalResult redirect(Object value, String message) {
-        return create()
+    @SuppressWarnings("unchecked")
+    public static <T> GlobalResult<T> redirect(T value, String message) {
+        return (GlobalResult<T>) create()
                 .setCode(GlobalResultEnums.FORWARD.getCode())
                 .setMessage(message)
                 .setData(value);
     }
 
     // 优化后的链式方法
-    public GlobalResult setCode(Integer code) {
+    public GlobalResult<T> setCode(Integer code) {
         this.code = code;
         return this;
     }
 
-    public GlobalResult setMessage(String message) {
+    public GlobalResult<T> setMessage(String message) {
         this.message = message;
         return this;
     }
 
-    private GlobalResult setData(Object data) {
+    private GlobalResult<T> setData(T data) {
         this.data = data;
         return this;
     }

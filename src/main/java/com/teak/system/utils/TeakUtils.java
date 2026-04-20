@@ -1,5 +1,6 @@
 package com.teak.system.utils;
 
+import com.teak.system.exception.BusinessException;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
@@ -31,47 +32,6 @@ import java.util.function.Function;
 @Slf4j
 public class TeakUtils {
 
-    /**
-     * 一对一map分组
-     *
-     * @param dataList   数据
-     * @param classifier 参照的字段
-     * @return 返回分组后的map
-     */
-    @Deprecated(since = "弃用，用toMap", forRemoval = true)
-    public <K, F> Map<K, F> oneToOneGrouping(List<F> dataList, Function<F, K> classifier) {
-        ConcurrentHashMap<K, F> hashMap = new ConcurrentHashMap<>();
-        for (F data : dataList) {
-            try {
-                K k = classifier.apply(data);
-                hashMap.put(k, data);
-            } catch (Exception e) {
-                throw new RuntimeException("字段值为空");
-            }
-        }
-        return hashMap;
-    }
-
-    /**
-     * 一对一map分组,可自定义map类型
-     *
-     * @param dataList   数据
-     * @param classifier 参照的字段
-     * @param map        自定义map
-     * @return 返回分组后的map
-     */
-    @Deprecated(since = "弃用，用toMap", forRemoval = true)
-    public <K, F> Map<K, F> oneToOneGrouping(List<F> dataList, Function<F, K> classifier, Map<K, F> map) {
-        for (F data : dataList) {
-            try {
-                K k = classifier.apply(data);
-                map.put(k, data);
-            } catch (Exception e) {
-                throw new RuntimeException("字段值为空");
-            }
-        }
-        return map;
-    }
 
     /*private static MimeMessageHelper getMimeMessageHelper(ReceiverEntity receiverEntity, MimeMessage mimeMessage) throws MessagingException {
         MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(mimeMessage, true, "UTF-8");

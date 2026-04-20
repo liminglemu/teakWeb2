@@ -13,6 +13,7 @@ import com.teak.service.ScheduledTaskManager;
 import com.teak.system.executor.TaskExecutor;
 import com.teak.system.event.TaskRefreshEvent;
 import com.teak.system.event.TaskRefreshEvent;
+import com.teak.system.exception.BusinessException;
 import com.teak.system.utils.TeakUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -163,7 +164,7 @@ public class ScheduledTaskManagerImpl implements ScheduledTaskManager {
         } catch (IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException("taskArgs 解析失败: " + e.getMessage(), e);
+            throw new BusinessException("taskArgs 解析失败: " + e.getMessage(), e);
         }
     }
 

@@ -1,6 +1,7 @@
 package com.teak.system.utils;
 
 import lombok.Data;
+import com.teak.system.exception.BusinessException;
 import org.springframework.stereotype.Component;
 
 import java.text.ParseException;
@@ -51,7 +52,7 @@ public class TimeUtils {
                 return new SimpleDateFormat(PATTERN_DATETIME).parse(stringDate);
             }
         } catch (ParseException e) {
-            throw new RuntimeException("日期解析失败: " + stringDate, e); // 保留原始异常
+            throw new BusinessException("日期解析失败，支持格式: yyyy-MM / yyyy-MM-dd / yyyy-MM-dd HH:mm:ss，实际输入=" + stringDate, e);
         }
     }
 

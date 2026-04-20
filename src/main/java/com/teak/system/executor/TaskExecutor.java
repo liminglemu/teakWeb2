@@ -8,9 +8,11 @@ import cn.hutool.json.JSONUtil;
 import com.teak.mapper.SysScheduledTaskLogMapper;
 import com.teak.model.SysScheduledTask;
 import com.teak.model.SysScheduledTaskLog;
+import com.teak.system.exception.TaskExecutionException;
 import com.teak.system.utils.TeakUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
@@ -88,7 +90,7 @@ public class TaskExecutor {
             finishLog(logEntity, startTime, false, errorMsg);
             log.error("[{}][logId={}] 执行失败 | cost={}ms | error={}", taskName, logEntity.getId(),
                     System.currentTimeMillis() - startTime, errorMsg, e);
-            throw new RuntimeException("任务 [" + taskName + "] 执行失败: " + errorMsg, e);
+            throw new TaskExecutionException("任务 [" + taskName + "] 执行失败: " + errorMsg, e);
         } finally {
             // 清理 ThreadLocal，防止内存泄漏
             TaskExecuteContext.clear();
@@ -141,7 +143,7 @@ public class TaskExecutor {
             invokeByTaskArgs(bean, methodName, taskArgsJson, taskName);
         } else {
             // 模式3: 无参
-            Method method = bean.getClass().getMethod(methodName);
+            Method method = getTargetClass(bean).getMethod(methodName);
             method.invoke(bean);
         }
     }
@@ -160,13 +162,13 @@ public class TaskExecutor {
                 : JSONUtil.toList(paramsJson, Object.class);
 
         if (paramValues.size() != classes.length) {
-            throw new RuntimeException(String.format(
+            throw new TaskExecutionException(String.format(
                     "参数个数不匹配: 需要%d个(%s)，实际传入%d个",
                     classes.length, paramTypesStr, paramValues.size()));
         }
 
         Object[] args = convertParams(paramValues, classes, taskName);
-        Method method = bean.getClass().getMethod(methodName, classes);
+        Method method = getTargetClass(bean).getMethod(methodName, classes);
         method.invoke(bean, args);
     }
 
@@ -190,7 +192,7 @@ public class TaskExecutor {
         Class<?>[] types = targetMethod.getParameterTypes();
 
         if (orderedValues.size() != types.length) {
-            throw new RuntimeException(String.format(
+            throw new TaskExecutionException(String.format(
                     "taskArgs参数个数不匹配: 方法需要%d个参数，提供了%d个",
                     types.length, orderedValues.size()));
         }
@@ -231,11 +233,12 @@ public class TaskExecutor {
      * 查找目标方法（无参优先 → 有参选最多参数的版本）
      */
     private Method findMethod(Object bean, String methodName) throws NoSuchMethodException {
+        Class<?> targetClass = getTargetClass(bean);
         try {
-            return bean.getClass().getMethod(methodName);
+            return targetClass.getMethod(methodName);
         } catch (NoSuchMethodException ignored) {
 
-            Method[] candidates = java.util.Arrays.stream(bean.getClass().getMethods())
+            Method[] candidates = java.util.Arrays.stream(targetClass.getMethods())
                     .filter(m -> m.getName().equals(methodName))
                     .toArray(Method[]::new);
             if (candidates.length == 0) {
@@ -244,5 +247,16 @@ public class TaskExecutor {
             java.util.Arrays.sort(candidates, java.util.Comparator.comparingInt(m -> -m.getParameterCount()));
             return candidates[0];
         }
+    }
+
+    /**
+     * 获取 Bean 的真实目标类（穿透 CGLIB/JDK 动态代理）
+     */
+    private Class<?> getTargetClass(Object bean) {
+        Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
+        if (targetClass != null && targetClass != bean.getClass()) {
+            log.debug("检测到代理: {} -> 目标类: {}", bean.getClass().getSimpleName(), targetClass.getSimpleName());
+        }
+        return targetClass;
     }
 }

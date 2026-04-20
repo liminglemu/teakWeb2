@@ -1,5 +1,6 @@
 package com.teak.service.serviceImpl.scheduledTesting;
 
+import com.teak.system.executor.TaskExecuteContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,9 @@ public class TestScheduledTask {
      * 无参数的定时任务方法
      */
     public void executeSimpleTask() {
+        String taskName = TaskExecuteContext.getTaskName();
+        LocalDateTime fireTime = TaskExecuteContext.getFireTime();
+        log.info("任务名称：{}，触发时间：{}", taskName, fireTime);
         log.info("执行简单定时任务，当前时间: {}", LocalDateTime.now());
     }
     

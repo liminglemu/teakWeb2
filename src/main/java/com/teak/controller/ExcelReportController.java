@@ -2,6 +2,7 @@ package com.teak.controller;
 
 import com.teak.model.dto.GenerateProgressReportResultDto;
 import com.teak.service.ExcelReportService;
+import com.teak.system.exception.BusinessException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
@@ -51,7 +52,7 @@ public class ExcelReportController {
             workbook.write(response.getOutputStream());
             workbook.close();
         } catch (IOException e) {
-            throw new RuntimeException("生成Excel报表失败", e);
+            throw new BusinessException("生成Excel报表失败", e);
         }
     }
 }

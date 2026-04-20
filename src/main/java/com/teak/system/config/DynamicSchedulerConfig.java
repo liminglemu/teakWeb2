@@ -4,8 +4,10 @@ import com.teak.mapper.SysScheduledTaskMapper;
 import com.teak.model.SysScheduledTask;
 import com.teak.system.event.TaskRefreshEvent;
 import com.teak.system.executor.TaskExecutor;
+import com.teak.system.exception.TaskExecutionException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Configuration;
@@ -15,6 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -156,28 +159,51 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
     /**
      * 预校验：启动时检查 Bean + 方法是否存在
      */
-    private void validateTask(SysScheduledTask task) {
-        try {
-            Object bean = applicationContext.getBean(task.getBeanName());
-            String paramTypes = task.getParameterTypes();
-            if (isNotBlank(paramTypes)) {
-                bean.getClass().getMethod(task.getMethodName(),
-                        Arrays.stream(paramTypes.split(","))
-                                .map(String::trim)
-                                .map(t -> {
-                                    try { return t.contains(".") ? Class.forName(t) : Class.forName("java.lang." + t); }
-                                    catch (ClassNotFoundException e) { throw new RuntimeException(e); }
-                                })
-                                .toArray(Class[]::new));
-            } else if (isNotBlank(task.getTaskArgs())) {
-                bean.getClass().getMethod(task.getMethodName());
-            } else {
-                bean.getClass().getMethod(task.getMethodName());
-            }
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "任务 [" + task.getTaskName() + "] 预校验失败: " + e.getMessage(), e);
+    private void validateTask(SysScheduledTask task) throws NoSuchMethodException, ClassNotFoundException {
+        Object bean = applicationContext.getBean(task.getBeanName());
+        Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
+        String methodName = task.getMethodName();
+        String paramTypes = task.getParameterTypes();
+
+        if (isNotBlank(paramTypes)) {
+            // 模式1: 传统 parameterTypes — 精确匹配参数类型
+            targetClass.getMethod(methodName,
+                    Arrays.stream(paramTypes.split(","))
+                            .map(String::trim)
+                            .map(t -> {
+                                try { return t.contains(".") ? Class.forName(t) : Class.forName("java.lang." + t); }
+                                catch (ClassNotFoundException e) { throw new TaskExecutionException("任务预校验时参数类型不存在: " + e.getMessage(), e); }
+                            })
+                            .toArray(Class[]::new));
+        } else {
+            // 模式2 / 模式3: taskArgs 或无参 — 按方法名搜索（支持有参方法）
+            Method foundMethod = findAnyMethodByName(targetClass, methodName);
+            log.debug("[{}] 预校验通过: {}({})", task.getTaskName(), foundMethod.getName(),
+                    java.util.Arrays.toString(foundMethod.getParameterTypes()));
         }
+    }
+
+    /**
+     * 按名称查找目标类中的任意重载方法（与 TaskExecutor.findMethod 逻辑一致）
+     */
+    private static Method findAnyMethodByName(Class<?> targetClass, String methodName) throws NoSuchMethodException {
+        // 先尝试精确匹配无参版本
+        try {
+            return targetClass.getMethod(methodName);
+        } catch (NoSuchMethodException ignored) { }
+
+        // 再搜索所有 public 方法（含重载）
+        Method[] candidates = Arrays.stream(targetClass.getMethods())
+                .filter(m -> m.getName().equals(methodName))
+                .toArray(Method[]::new);
+
+        if (candidates.length == 0) {
+            throw new NoSuchMethodException(targetClass.getSimpleName() + "." + methodName);
+        }
+
+        // 多个重载时优先返回参数最多的版本
+        Arrays.sort(candidates, java.util.Comparator.comparingInt(m -> -m.getParameterCount()));
+        return candidates[0];
     }
 
     private static boolean isNotBlank(String s) {

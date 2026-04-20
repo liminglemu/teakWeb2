@@ -7,6 +7,7 @@ import com.teak.mapper.DeviceFaultRecordsMapping;
 import com.teak.model.DeviceFaultRecords;
 import com.teak.model.vo.DeviceFaultRecordsVo;
 import com.teak.service.DeviceFaultRecordsService;
+import com.teak.system.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,7 +40,7 @@ public class DeviceFaultRecordsServiceImpl extends ServiceImpl<DeviceFaultRecord
         try {
             endDateParse = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(endTime);
         } catch (ParseException e) {
-            throw new RuntimeException(e);
+            throw new BusinessException("结束时间格式错误，期望 yyyy-MM-dd HH:mm:ss，实际=" + endTime, e);
         }
         List<DeviceFaultRecords> deviceFaultRecords = deviceFaultRecordsMapping.getDeviceFaultRecordsByTime(startTime, endTime);
 
@@ -225,7 +226,7 @@ public class DeviceFaultRecordsServiceImpl extends ServiceImpl<DeviceFaultRecord
             String valueAsString = objectMapper.writeValueAsString(list);
             log.info("valueAsString:{}", valueAsString);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+            throw new BusinessException("故障记录序列化失败", e);
         }
         return list;
     }

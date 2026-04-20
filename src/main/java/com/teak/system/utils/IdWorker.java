@@ -1,6 +1,7 @@
 package com.teak.system.utils;
 
 import lombok.extern.slf4j.Slf4j;
+import com.teak.system.exception.TeakException;
 import org.springframework.stereotype.Component;
 
 import java.lang.management.ManagementFactory;
@@ -149,14 +150,14 @@ public final class IdWorker {
         if (timestamp < lastTimeStamp) {
             long offset = lastTimeStamp - timestamp;
             if (offset > MAX_BACKWARD_MS) {
-                throw new RuntimeException(String.format("时钟回拨超过阈值，拒绝生成ID %d ms", offset));
+                throw new TeakException(String.format("时钟回拨超过阈值，拒绝生成ID %d ms", offset));
             }
             try {
                 TimeUnit.MILLISECONDS.sleep(offset);
                 timestamp = timeGen();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException("时钟回拨等待中断", e);
+                throw new TeakException("时钟回拨等待中断", e);
             }
         }
 

@@ -34,9 +34,7 @@ public class WebUserController {
                 .like(userName != null && !userName.isBlank(), WebUser::getUserName, userName)
                 .orderByDesc(WebUser::getCreateTime);
         Page<WebUser> page = webUserService.page(Page.of(current, size), wrapper);
-        HashMap<String, Object> hashMap = new HashMap<>();
-        hashMap.put("webUsers", page);
-        return GlobalResult.success(hashMap);
+        return GlobalResult.success(page);
     }
 
     @GetMapping("/{id}")
@@ -46,9 +44,7 @@ public class WebUserController {
         if (user == null) {
             return GlobalResult.error("用户不存在: ID=" + id);
         }
-        HashMap<String, Object> hashMap = new HashMap<>();
-        hashMap.put("webUsers", user);
-        return GlobalResult.success(hashMap);
+        return GlobalResult.success(user);
     }
 
     @PostMapping

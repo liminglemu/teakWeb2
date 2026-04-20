@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.teak.model.Order;
 import com.teak.system.config.RabbitMQConfig;
+import com.teak.system.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
@@ -47,7 +48,7 @@ public class OrderProducer {
         } catch (AmqpException e) {
             log.error("消息发送失败", e);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+            throw new BusinessException("订单消息JSON序列化失败", e);
         }
     }
 }

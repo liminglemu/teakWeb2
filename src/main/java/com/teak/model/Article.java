@@ -29,10 +29,5 @@ public class Article extends BaseModel implements Serializable {
      */
     private String title;
 
-    /**
-     * 文章分类Id
-     */
-    private String articleCategoryName;
-
     private Long userId;
 }
