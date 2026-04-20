@@ -1,6 +1,8 @@
 package com.teak.controller;
 
+import com.teak.mapper.SysScheduledTaskLogMapper;
 import com.teak.model.SysScheduledTask;
+import com.teak.model.SysScheduledTaskLog;
 import com.teak.model.vo.SysScheduledTaskVo;
 import com.teak.service.ScheduledTaskManager;
 import com.teak.system.result.GlobalResult;
@@ -24,6 +26,7 @@ import java.util.List;
 public class SysScheduledTaskController {
 
     private final ScheduledTaskManager scheduledTaskManager;
+    private final SysScheduledTaskLogMapper scheduledTaskLogMapper;
 
     @GetMapping("/getAllTask")
     @Operation(summary = "获取所有任务", description = "获取所有定时任务")
@@ -210,5 +213,39 @@ public class SysScheduledTaskController {
         } catch (Exception e) {
             return GlobalResult.error("补执行失败: " + e.getMessage());
         }
+    }
+
+    // ==================== 执行记录查询 ====================
+
+    @GetMapping("/log/list")
+    @Operation(summary = "查询任务执行记录", description = "根据任务ID查询该任务的执行历史记录，按触发时间倒序")
+    public GlobalResult getExecutionLogs(
+            @Parameter(description = "任务ID（必传）") @RequestParam Long taskId,
+            @Parameter(description = "区间开始时间(可选), 格式: yyyy-MM-dd HH:mm:ss") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
+            @Parameter(description = "区间结束时间(可选), 格式: yyyy-MM-dd HH:mm:ss") @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime) {
+        List<SysScheduledTaskLog> logs;
+        if (startTime != null || endTime != null) {
+            logs = scheduledTaskLogMapper.selectByTaskIdAndTimeRange(taskId, startTime, endTime);
+        } else {
+            logs = scheduledTaskLogMapper.selectByTaskId(taskId);
+        }
+        return GlobalResult.success(logs);
+    }
+
+    @GetMapping("/log/recent")
+    @Operation(summary = "查询最近N条执行记录", description = "全局最近的任务执行记录，跨任务查看")
+    public GlobalResult getRecentLogs(
+            @Parameter(description = "条数，默认20") @RequestParam(defaultValue = "20") int limit) {
+        return GlobalResult.success(scheduledTaskLogMapper.selectRecent(limit));
+    }
+
+    @GetMapping("/log/{id}")
+    @Operation(summary = "查询单条执行记录详情", description = "根据执行记录ID查详情（含fireTime、耗时、错误信息等）")
+    public GlobalResult getLogDetail(@Parameter(description = "执行记录ID") @PathVariable Long id) {
+        SysScheduledTaskLog log = scheduledTaskLogMapper.selectById(id);
+        if (log == null) {
+            return GlobalResult.error("执行记录不存在: ID=" + id);
+        }
+        return GlobalResult.success(log);
     }
 }

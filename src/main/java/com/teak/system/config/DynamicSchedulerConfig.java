@@ -1,14 +1,9 @@
 package com.teak.system.config;
 
-import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.text.CharSequenceUtil;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONUtil;
 import com.teak.mapper.SysScheduledTaskMapper;
 import com.teak.model.SysScheduledTask;
 import com.teak.system.event.TaskRefreshEvent;
-import com.teak.system.utils.TeakUtils;
+import com.teak.system.executor.TaskExecutor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
@@ -20,23 +15,22 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 
-import java.io.Serializable;
-import java.lang.reflect.Method;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
- * 动态定时任务配置类
+ * 动态定时任务调度器 — 纯调度职责
  *
- * <p>执行流程: 数据库加载 → 反射解析参数 → method.invoke() 调用目标方法
- * <p>支持两种存储模式:
- * <ul>
- *   <li>传统模式: params(JSON数组) + parameterTypes(逗号分隔类型名)</li>
- *   <li>推荐模式: taskArgs(JSON键值对) → 保存时自动转换为上述格式</li>
- * </ul>
+ * <p>负责: 任务的注册、取消、刷新、Trigger/Runnable 创建
+ * <p>不负责: 参数解析、反射调用、日志记录（全部委托给 {@link TaskExecutor}）
  */
 @Slf4j
 @Configuration
@@ -45,15 +39,18 @@ import java.util.concurrent.ScheduledFuture;
 public class DynamicSchedulerConfig implements SmartLifecycle {
 
     private final SysScheduledTaskMapper sysScheduledTaskMapper;
+    private final TaskExecutor taskExecutor;
     private final ApplicationContext applicationContext;
     private final ThreadPoolTaskScheduler scheduler;
     private final ExecutorService executorService;
-    private final TeakUtils teakUtils;
 
     private volatile boolean running = false;
     private volatile ScheduledFuture<?>[] scheduledFutures = new ScheduledFuture<?>[0];
 
-    // ============ SmartLifecycle 生命周期 ============
+    /** 缓存每个任务最近一次 CronTrigger 计划的触发时间 (Instant→LocalDateTime) */
+    private final ConcurrentHashMap<String, LocalDateTime> scheduledFireTimeMap = new ConcurrentHashMap<>();
+
+    // ============ SmartLifecycle ============
 
     @Override
     public void start() {
@@ -79,7 +76,7 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
     // ============ 任务管理 ============
 
     /**
-     * 刷新所有定时任务（取消旧任务 → 从数据库重新加载）
+     * 刷新所有定时任务
      */
     public void refreshTasks() {
         log.info("开始刷新定时任务");
@@ -96,7 +93,6 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         for (int i = 0; i < tasks.size(); i++) {
             SysScheduledTask task = tasks.get(i);
             try {
-                // 启动时预校验：检查 Bean 和方法是否存在（提前暴露问题）
                 validateTask(task);
                 scheduledFutures[i] = scheduler.schedule(createRunnable(task), createTrigger(task));
                 log.info("[{}] 已注册: {}.{} | cron={}", task.getTaskName(),
@@ -108,14 +104,9 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         log.info("定时任务刷新完成 (成功 {}/{})", countActiveFutures(), tasks.size());
     }
 
-    /**
-     * 取消所有已调度的任务
-     */
     private void cancelTasks() {
-        for (ScheduledFuture<?> future : scheduledFutures) {
-            if (future != null && !future.isCancelled()) {
-                future.cancel(true);
-            }
+        for (ScheduledFuture<?> f : scheduledFutures) {
+            if (f != null && !f.isCancelled()) f.cancel(true);
         }
         scheduledFutures = new ScheduledFuture<?>[0];
     }
@@ -128,203 +119,58 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         return count;
     }
 
-    // ============ 任务执行 ============
+    // ============ Trigger & Runnable（调度层核心） ============
 
     /**
-     * 创建任务执行 Runnable
-     *
-     * <p>执行策略:
-     * <ul>
-     *   <li>有 parameterTypes → 按类型解析 params 并反射调用</li>
-     *   <li>有 taskArgs 无 parameterTypes → 从 taskArgs JSON 按位置取值并自动推断类型</li>
-     *   <li>都没有 → 无参调用</li>
-     * </ul>
+     * 创建 Runnable — 正常调度时从 Map 取出 scheduledFireTime，然后委托给 TaskExecutor
      */
     private Runnable createRunnable(SysScheduledTask task) {
-        return () -> CompletableFuture.runAsync(() -> executeTask(task), executorService);
-    }
-
-    /**
-     * 执行单个定时任务的核心方法（公开供手动调用）
-     */
-    public void executeTask(SysScheduledTask task) {
-        String taskId = task.getTaskName();
-        long startTime = System.currentTimeMillis();
-        log.info("[{}] 开始执行", taskId);
-
-        try {
-            Object bean = applicationContext.getBean(task.getBeanName());
-            String methodName = task.getMethodName();
-            String paramTypesStr = task.getParameterTypes();
-            String taskArgsJson = task.getTaskArgs();
-
-
-            if (CharSequenceUtil.isNotBlank(paramTypesStr)) {
-                // 传统模式: params + parameterTypes
-                invokeWithParamTypes(bean, methodName, paramTypesStr, task.getParams(), taskId);
-            } else if (CharSequenceUtil.isNotBlank(taskArgsJson)) {
-                // 推荐模式: taskArgs → 自动推断类型和参数值
-                invokeWithTaskArgs(bean, methodName, taskArgsJson, taskId);
-            } else {
-                // 无参模式
-                invokeNoArgs(bean, methodName);
+        String taskName = task.getTaskName();
+        return () -> CompletableFuture.runAsync(() -> {
+            LocalDateTime fireTime = scheduledFireTimeMap.remove(taskName);
+            if (fireTime == null) {
+                log.warn("[{}] 未获取到 scheduledFireTime，回退使用当前时间", taskName);
+                fireTime = LocalDateTime.now();
             }
-
-            long costMs = System.currentTimeMillis() - startTime;
-            log.info("[{}] 执行完成 耗时 {}ms", taskId, costMs);
-
-        } catch (ClassNotFoundException e) {
-            log.error("[{}] 参数类型不存在: {}", taskId, e.getMessage());
-        } catch (NoSuchMethodException e) {
-            log.error("[{}] 目标方法不存在: {}.{}", taskId, task.getBeanName(), task.getMethodName());
-        } catch (Exception e) {
-            long costMs = System.currentTimeMillis() - startTime;
-            log.error("[{}] 执行异常 耗时 {}ms | error={}", taskId, costMs, e.getMessage(), e);
-            throw new RuntimeException("任务 [" + taskId + "] 执行失败: " + e.getMessage(), e);
-        }
-    }
-
-    // ============ 三种调用方式 ============
-
-    /**
-     * 方式1: 传统模式 — 通过 parameterTypes + params 反射调用
-     */
-    private void invokeWithParamTypes(Object bean, String methodName,
-                                      String paramTypesStr, String paramsJson, String taskId)
-            throws Exception {
-        log.info("[{}] 尝试执行方式1: 传统模式", taskId);
-        Class<?>[] classes = resolveParameterClasses(paramTypesStr);
-
-        List<Object> paramValues;
-        if (StrUtil.isBlank(paramsJson)) {
-            paramValues = CollUtil.newArrayList();
-        } else {
-            paramValues = JSONUtil.toList(paramsJson, Object.class);
-        }
-
-        if (paramValues.size() != classes.length) {
-            throw new RuntimeException(String.format(
-                    "参数个数不匹配: 需要%d个(%s)，实际传入%d个",
-                    classes.length, paramTypesStr, paramValues.size()));
-        }
-
-        Object[] args = convertParams(paramValues, classes, taskId);
-        Method method = bean.getClass().getMethod(methodName, classes);
-        method.invoke(bean, args);
+            taskExecutor.execute(task, TaskExecutor.SOURCE_SCHEDULED, fireTime);
+        }, executorService);
     }
 
     /**
-     * 方式2: 推荐模式 — 通过 taskArgs 自动推断类型后调用
-     *
-     * <p>从 taskArgs JSON 中按值的位置顺序提取参数，
-     * 再通过目标方法的签名自动推断每个位置的类型。
+     * 创建 Trigger — 计算下次执行时间并缓存到 Map
      */
-    private void invokeWithTaskArgs(Object bean, String methodName,
-                                    String taskArgsJson, String taskId) throws Exception {
-        log.info("[{}] 尝试执行方式2: 推荐模式", taskId);
-        Map<String, Object> taskArgs = JSONUtil.toBean(taskArgsJson, Map.class);
+    private Trigger createTrigger(SysScheduledTask task) {
+        return triggerContext -> {
+            Instant nextInstant = new CronTrigger(task.getCronExpression())
+                    .nextExecution(triggerContext);
 
-        Method targetMethod = findMethod(bean, methodName);
-
-        //从 taskArgs Map 中按插入顺序提取值（排除 __ 开头的系统字段）
-        List<Object> orderedValues = CollUtil.newArrayList();
-        for (Map.Entry<String, Object> entry : taskArgs.entrySet()) {
-            if (!entry.getKey().startsWith("__")) {
-                orderedValues.add(entry.getValue());
+            if (nextInstant != null) {
+                LocalDateTime fireTime = LocalDateTime.ofInstant(nextInstant, ZoneId.systemDefault());
+                scheduledFireTimeMap.put(task.getTaskName(), fireTime);
+                log.debug("[{}] Trigger → nextFireTime={}", task.getTaskName(), fireTime);
             }
-        }
-        Class<?>[] types = targetMethod.getParameterTypes();
-
-        if (orderedValues.size() != types.length) {
-            throw new RuntimeException(String.format(
-                    "taskArgs参数个数不匹配: 方法需要%d个参数，提供了%d个",
-                    types.length, orderedValues.size()));
-        }
-
-        Object[] args = convertParams(orderedValues, types, taskId);
-        targetMethod.invoke(bean, args);
+            return nextInstant;
+        };
     }
 
     /**
-     * 方式3: 无参调用
-     */
-    private void invokeNoArgs(Object bean, String methodName) throws Exception {
-        Method method = bean.getClass().getMethod(methodName);
-        method.invoke(bean);
-    }
-
-    // ============ 辅助工具方法 ============
-
-    /**
-     * 解析 parameterTypes 字符串为 Class 数组
-     */
-    private Class<?>[] resolveParameterClasses(String paramTypesStr) throws ClassNotFoundException {
-        String[] typeNames = paramTypesStr.split(",");
-        Class<?>[] classes = new Class<?>[typeNames.length];
-        for (int i = 0; i < typeNames.length; i++) {
-            String typeName = typeNames[i].trim();
-            // 先尝试基本数据类型
-            Class<? extends Serializable> basicType = teakUtils.resolveClassName(typeName);
-            if (basicType != null) {
-                classes[i] = basicType;
-            } else {
-                classes[i] = Class.forName(typeName);
-            }
-        }
-        return classes;
-    }
-
-
-    /**
-     * 类型转换：将原始参数值逐一转换为目标方法参数类型
-     */
-    private Object[] convertParams(List<Object> rawValues, Class<?>[] targetTypes, String taskId) {
-        Object[] result = new Object[rawValues.size()];
-        for (int i = 0; i < rawValues.size(); i++) {
-            Object rawValue = rawValues.get(i);
-            Class<?> targetType = targetTypes[i];
-            // Hutool BeanUtil.toBean 支持自动类型转换
-            result[i] = BeanUtil.toBean(rawValue, targetType);
-            log.debug("[{}] 参数[{}] {} -> {}: {}", taskId, i,
-                    rawValue.getClass().getSimpleName(), targetType.getSimpleName(), result[i]);
-        }
-        return result;
-    }
-
-
-    /**
-     * 查找目标方法（支持无参/有参/重载场景）
-     */
-    private Method findMethod(Object bean, String methodName) throws NoSuchMethodException {
-        // 优先无参
-        try {
-            return bean.getClass().getMethod(methodName);
-        } catch (NoSuchMethodException ignored) {
-        }
-
-        // 有多个重载时取参数最多的版本
-        Method[] candidates = java.util.Arrays.stream(bean.getClass().getMethods())
-                .filter(m -> m.getName().equals(methodName))
-                .toArray(Method[]::new);
-        if (candidates.length == 0) {
-            throw new NoSuchMethodException(methodName);
-        }
-        java.util.Arrays.sort(candidates, java.util.Comparator.comparingInt(m -> -m.getParameterCount()));
-        return candidates[0];
-    }
-
-    /**
-     * 预校验任务：启动时检查 Bean 和方法是否可调用，避免等到执行时才报错
+     * 预校验：启动时检查 Bean + 方法是否存在
      */
     private void validateTask(SysScheduledTask task) {
         try {
             Object bean = applicationContext.getBean(task.getBeanName());
             String paramTypes = task.getParameterTypes();
-            if (CharSequenceUtil.isNotBlank(paramTypes)) {
-                resolveParameterClasses(paramTypes);
-                bean.getClass().getMethod(task.getMethodName(), resolveParameterClasses(paramTypes));
-            } else if (CharSequenceUtil.isNotBlank(task.getTaskArgs())) {
-                findMethod(bean, task.getMethodName());
+            if (isNotBlank(paramTypes)) {
+                bean.getClass().getMethod(task.getMethodName(),
+                        Arrays.stream(paramTypes.split(","))
+                                .map(String::trim)
+                                .map(t -> {
+                                    try { return t.contains(".") ? Class.forName(t) : Class.forName("java.lang." + t); }
+                                    catch (ClassNotFoundException e) { throw new RuntimeException(e); }
+                                })
+                                .toArray(Class[]::new));
+            } else if (isNotBlank(task.getTaskArgs())) {
+                bean.getClass().getMethod(task.getMethodName());
             } else {
                 bean.getClass().getMethod(task.getMethodName());
             }
@@ -334,17 +180,15 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
         }
     }
 
-    // ============ Trigger & Event ============
-
-    private Trigger createTrigger(SysScheduledTask task) {
-        return triggerContext -> new CronTrigger(task.getCronExpression()).nextExecution(triggerContext);
+    private static boolean isNotBlank(String s) {
+        return s != null && !s.isBlank();
     }
+
+    // ============ Event ============
 
     @EventListener
     public void handleTaskRefreshEvent(TaskRefreshEvent event) {
         log.info("收到任务刷新事件");
-        if (running) {
-            refreshTasks();
-        }
+        if (running) refreshTasks();
     }
 }

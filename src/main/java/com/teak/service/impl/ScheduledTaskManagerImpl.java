@@ -10,7 +10,8 @@ import com.teak.mapper.SysScheduledTaskMapper;
 import com.teak.model.SysScheduledTask;
 import com.teak.model.vo.SysScheduledTaskVo;
 import com.teak.service.ScheduledTaskManager;
-import com.teak.system.config.DynamicSchedulerConfig;
+import com.teak.system.executor.TaskExecutor;
+import com.teak.system.event.TaskRefreshEvent;
 import com.teak.system.event.TaskRefreshEvent;
 import com.teak.system.utils.TeakUtils;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +42,7 @@ public class ScheduledTaskManagerImpl implements ScheduledTaskManager {
     private final SysScheduledTaskMapper sysScheduledTaskMapper;
     private final TeakUtils teakUtils;
     private final ApplicationContext applicationContext;
-    private final DynamicSchedulerConfig dynamicSchedulerConfig;
+    private final TaskExecutor taskExecutor;
     private final ExecutorService executorService;
 
     @Override
@@ -315,7 +316,7 @@ public class ScheduledTaskManagerImpl implements ScheduledTaskManager {
     public void executeTaskManually(Long taskId) {
         SysScheduledTask task = findTaskById(taskId);
         log.info("[手动执行] 开始执行任务[{}] (ID={})", task.getTaskName(), taskId);
-        dynamicSchedulerConfig.executeTask(task);
+        taskExecutor.execute(task, TaskExecutor.SOURCE_MANUAL, LocalDateTime.now());
         log.info("[手动执行] 任务[{}] 执行完成", task.getTaskName());
     }
 
@@ -380,15 +381,16 @@ public class ScheduledTaskManagerImpl implements ScheduledTaskManager {
 
         log.info("[区间补执行] 任务[{}] 共 {} 个触发点: {}", taskName, triggerTimes.size(), triggerTimes);
 
-        // 4. 逐一异步执行每个时间点的任务（无参任务直接用原始task对象）
+        // 4. 逐一异步执行每个时间点的任务（无参任务直接用原始task对象，fireTime=历史触发时间点）
         List<CompletableFuture<Void>> futures = new ArrayList<>();
-        for (LocalDateTime t : triggerTimes) {
+        for (LocalDateTime fireTime : triggerTimes) {
+            // capture for lambda
             futures.add(CompletableFuture.runAsync(() -> {
                 try {
-                    log.info("[区间补执行] [{}] 执行 {}", taskName, t);
-                    dynamicSchedulerConfig.executeTask(task);
+                    log.info("[区间补执行] [{}] 执行 {}", taskName, fireTime);
+                    taskExecutor.execute(task, TaskExecutor.SOURCE_BACKFILL, fireTime);
                 } catch (Exception e) {
-                    log.error("[区间补执行] [{}] 执行 {} 异常: {}", taskName, t, e.getMessage(), e);
+                    log.error("[区间补执行] [{}] 执行 {} 异常: {}", taskName, fireTime, e.getMessage(), e);
                 }
             }, executorService));
         }
