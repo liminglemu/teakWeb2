@@ -25,9 +25,7 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     baseline-version: 0
-  session:
-    jdbc:
-      initialize-schema: never # 使用Flyway管理表结构
+  
   data:
     redis:
       host: localhost
@@ -44,19 +42,7 @@ spring:
     redis:
       cache-null-values: false # 是否缓存空值
       time-to-live: 3600000 # 默认缓存过期时间
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-    virtual-host: /
-    publisher-confirm-type: correlated  # 消息确认模式
-    publisher-returns: true            # 开启消息退回
-    listener:
-      simple:
-        acknowledge-mode: manual       # 手动确认
-        concurrency: 3                 # 并发消费者数量
-        max-concurrency: 10
+  
 
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
@@ -67,10 +53,7 @@ mybatis-plus:
     cache-enabled: true
     local-cache-scope: session
 
-# 阿里云OSS配置
-oss.endpoint: oss-cn-beijing.aliyuncs.com
-oss.bucketName: dashijian
-oss.expireSeconds: 360000
+
 
 # SpringDoc OpenAPI 配置
 springdoc:

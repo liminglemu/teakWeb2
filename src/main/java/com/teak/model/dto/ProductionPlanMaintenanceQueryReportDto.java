@@ -1,7 +1,6 @@
 package com.teak.model.dto;
 
 import lombok.Data;
-import org.springframework.data.relational.core.sql.In;
 
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -50,16 +50,8 @@
 
     <!-- 项目依赖 -->
     <dependencies>
-        <!-- Spring Boot AMQP支持 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-amqp</artifactId>
-        </dependency>
-        <!-- Spring Boot 数据JDBC支持 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jdbc</artifactId>
-        </dependency>
+        
+        
         <!-- Spring Boot JDBC支持 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -75,16 +67,8 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        <!-- Spring Boot Web服务支持 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web-services</artifactId>
-        </dependency>
-        <!-- Spring Boot WebSocket支持 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-websocket</artifactId>
-        </dependency>
+        
+        
         <!-- SpringDoc OpenAPI UI -->
         <dependency>
             <groupId>org.springdoc</groupId>
@@ -97,16 +81,8 @@
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
             <version>3.5.7</version>
         </dependency>
-        <!-- Spring RabbitMQ流支持 -->
-        <dependency>
-            <groupId>org.springframework.amqp</groupId>
-            <artifactId>spring-rabbit-stream</artifactId>
-        </dependency>
-        <!-- Spring Session JDBC支持 -->
-        <dependency>
-            <groupId>org.springframework.session</groupId>
-            <artifactId>spring-session-jdbc</artifactId>
-        </dependency>
+        
+        
         <!-- Flyway数据库迁移工具 -->
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -143,12 +119,7 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- RabbitMQ测试依赖 -->
-        <dependency>
-            <groupId>org.springframework.amqp</groupId>
-            <artifactId>spring-rabbit-test</artifactId>
-            <scope>test</scope>
-        </dependency>
+        
         <!-- REST文档测试依赖 -->
         <dependency>
             <groupId>org.springframework.restdocs</groupId>
@@ -168,22 +139,7 @@
             <version>3.1.8</version> <!-- 使用最新版本 -->
         </dependency>
 
-        <!-- 阿里云OSS SDK -->
-        <dependency>
-            <groupId>com.aliyun.oss</groupId>
-            <artifactId>aliyun-sdk-oss</artifactId>
-            <version>3.15.0</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>httpclient</artifactId>
-                    <groupId>org.apache.httpcomponents</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>error_prone_annotations</artifactId>
-                    <groupId>com.google.errorprone</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        
 
         <!-- Alibaba Transmittable Thread Local -->
         <dependency>
@@ -203,24 +159,8 @@
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjweaver</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-mail</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.grpc</groupId>
-            <artifactId>spring-grpc-spring-boot-starter</artifactId>
-            <exclusions>
-                <exclusion>
-                    <artifactId>checker-qual</artifactId>
-                    <groupId>org.checkerframework</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>error_prone_annotations</artifactId>
-                    <groupId>com.google.errorprone</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        
+        
 
         <dependency>
             <groupId>org.apache.poi</groupId>
