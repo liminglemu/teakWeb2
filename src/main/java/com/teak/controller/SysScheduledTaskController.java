@@ -35,49 +35,6 @@ public class SysScheduledTaskController {
         return GlobalResult.success(allTask);
     }
 
-    @PostMapping("/addScheduledTask")
-    @Operation(summary = "添加定时任务（完整版）", description = "添加并启动新的定时任务，支持完整配置。" +
-            "推荐使用 taskArgs 字段传递参数（JSON键值对，自动推断类型），" +
-            "也可继续使用传统 params + parameterTypes 方式。")
-    public GlobalResult addScheduledTask(@Parameter(description = "定时任务信息") @RequestBody SysScheduledTaskVo sysScheduledTaskVo) {
-        try {
-            scheduledTaskManager.addAndStartScheduledTask(sysScheduledTaskVo);
-            return GlobalResult.success(null, "定时任务添加成功");
-        } catch (IllegalArgumentException e) {
-            return GlobalResult.error(e.getMessage());
-        } catch (Exception e) {
-            return GlobalResult.error("添加失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 快速添加定时任务（只需3个字段，无参数版）
-     */
-    @PostMapping("/quickAdd")
-    @Operation(
-            summary = "快速添加定时任务(无参)",
-            description = "简化版：只需任务名、方法路径、cron表达式。适用于无参方法或默认行为。方法路径格式: beanName.methodName"
-    )
-    public GlobalResult quickAdd(
-            @Parameter(description = "任务名称") @RequestParam String taskName,
-            @Parameter(description = "方法路径，如: deviceFaultRecordFetchTask.fetchDeviceFaultRecords") @RequestParam String methodPath,
-            @Parameter(description = "cron表达式，如: 0 */5 * * * ? （每5分钟）") @RequestParam String cronExpression
-    ) {
-        try {
-            SysScheduledTaskVo vo = new SysScheduledTaskVo();
-            vo.setTaskName(taskName);
-            vo.setMethodPath(methodPath);
-            vo.setCronExpression(cronExpression);
-            vo.setStatus(1);
-            scheduledTaskManager.addAndStartScheduledTask(vo);
-            return GlobalResult.success(null, "定时任务 [" + taskName + "] 添加成功");
-        } catch (IllegalArgumentException e) {
-            return GlobalResult.error(e.getMessage());
-        } catch (Exception e) {
-            return GlobalResult.error("添加失败: " + e.getMessage());
-        }
-    }
-
     /**
      * 快速添加带参数定时任务（推荐方式）
      *

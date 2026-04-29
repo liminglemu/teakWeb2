@@ -14,7 +14,7 @@ public interface ScheduledTaskManager {
     /**
      * 添加并启动定时任务
      */
-    void addAndStartScheduledTask(SysScheduledTaskVo sysScheduledTaskVo);
+    void addAndStartScheduledTask(SysScheduledTaskVo sysScheduledTaskVo) throws Exception;
 
     /**
      * 刷新所有定时任务

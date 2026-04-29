@@ -7,7 +7,7 @@
     <result column="cron_expression" jdbcType="VARCHAR" property="cronExpression" />
     <result column="bean_name" jdbcType="VARCHAR" property="beanName" />
     <result column="method_name" jdbcType="VARCHAR" property="methodName" />
-    <result column="params" jdbcType="VARCHAR" property="params" />
+    <result column="task_args" jdbcType="VARCHAR" property="taskArgs" />
     <result column="status" jdbcType="INTEGER" property="status" />
     <result column="create_time" jdbcType="TIMESTAMP" property="createTime" />
     <result column="update_time" jdbcType="TIMESTAMP" property="updateTime" />

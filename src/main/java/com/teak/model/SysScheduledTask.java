@@ -10,8 +10,11 @@ import java.io.Serial;
 import java.io.Serializable;
 
 /**
- * 动态定时任务表
+ * 动态定时任务表（简化版）
  * sys_scheduled_task
+ * 
+ * <p>重构后只保留核心字段，移除冗余的params和parameterTypes字段，
+ * 统一使用taskArgs JSON格式传递参数。
  */
 @Data
 @TableName(value = "sys_scheduled_task")
@@ -49,21 +52,16 @@ public class SysScheduledTask extends BaseModel implements Serializable {
     private String methodName;
 
     /**
-     * 方法参数 list内部必须承载的都是可序列化对象
-     */
-    private String params;
-
-    /**
-     * 方法参数类型数组，用逗号分隔例如：String.class,Integer.class
-     * @deprecated 使用 taskArgs 替代，更简洁的JSON键值对格式
-     */
-    @Deprecated
-    private String parameterTypes;
-
-    /**
-     * 任务参数（JSON键值对格式）
-     * 示例: {"startTime":"2022-04-01 00:00:00","endTime":"2024-08-01 00:00:00"}
-     * 通过方法参数上的@Param注解自动匹配，无需手动指定parameterTypes
+     * 任务参数（JSON格式）
+     * 
+     * <p>支持两种模式：
+     * 1. 位置参数模式：["value1", "value2"] - 按位置匹配方法参数
+     * 2. 命名参数模式：{"param1":"value1","param2":"value2"} - 按参数名匹配（需方法参数使用@Param注解）
+     * 
+     * <p>示例：
+     * - 无参方法：null 或 ""
+     * - 位置参数：["2022-04-01", "2024-08-01"]
+     * - 命名参数：{"startTime":"2022-04-01","endTime":"2024-08-01"}
      */
     private String taskArgs;
 

@@ -1,8 +1,6 @@
 package com.teak;
 
-import com.teak.model.vo.SysScheduledTaskVo;
-import com.teak.service.OrderProducer;
-import com.teak.service.impl.ScheduledTaskManagerImpl;
+import com.teak.service.ScheduledTaskManager;
 import com.teak.system.utils.TimeUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,10 +19,7 @@ import java.util.Date;
 @SpringBootTest(classes = TeakWeb2Application.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TeakWeb2ApplicationTests {
 
-
-    private final OrderProducer orderProducer;
-
-    private final ScheduledTaskManagerImpl scheduledTaskManagerImpl;
+    private final ScheduledTaskManager scheduledTaskManager;
 
     private final TimeUtils timeUtils;
 
@@ -41,23 +36,6 @@ class TeakWeb2ApplicationTests {
         log.info("{}", string);
         Date date = new Date(0L);
         log.info("{}", timeUtils.dateToStringFormat(date));
-    }
-
-    @Test
-    void test2() {
-        SysScheduledTaskVo sysScheduledTaskVo = new SysScheduledTaskVo();
-        sysScheduledTaskVo.setTaskName("设备故障记录服务");
-//        sysScheduledTaskVo.setBeanName("deviceFaultRecordsServiceImpl");
-//        sysScheduledTaskVo.setMethodName("getDeviceFaultRecords");
-        sysScheduledTaskVo.setMethodPath("deviceFaultRecordsServiceImpl.getDeviceFaultRecords");
-        sysScheduledTaskVo.setCronExpression("0/5 * * * * ?");
-        ArrayList<Serializable> arrayList = new ArrayList<>();
-        arrayList.add("2020-01-01 00:00:00");
-        arrayList.add("2025-02-01 12:30:30");
-        sysScheduledTaskVo.setParams(arrayList);
-        sysScheduledTaskVo.setParameterTypes("String,String");
-        sysScheduledTaskVo.setStatus(1);
-        scheduledTaskManagerImpl.addAndStartScheduledTask(sysScheduledTaskVo);
     }
 
     @Test

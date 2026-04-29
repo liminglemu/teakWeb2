@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 定时任务VO
+ * 定时任务VO（简化版）
  */
 @Data
 public class SysScheduledTaskVo {
@@ -20,30 +20,21 @@ public class SysScheduledTaskVo {
     /** 状态 (0-停用, 1-启用) */
     private Integer status = 1;
 
-    // ============ 参数方式（二选一） ============
+    // ============ 参数方式（统一使用taskArgs） ============
 
     /**
-     * 方法参数列表（传统模式，需配合 parameterTypes 使用）
-     * @deprecated 推荐使用 taskArgs 替代
+     * 任务参数（JSON格式）
+     * 
+     * <p>支持两种模式：
+     * 1. 位置参数：使用List格式，如 ["value1", "value2"]
+     * 2. 命名参数：使用Map格式，如 {"param1":"value1","param2":"value2"}
+     * 
+     * <p>命名参数需要方法参数使用@Param注解，如：
+     * {@code public void myMethod(@Param("param1") String p1, @Param("param2") String p2)}
+     * 
+     * <p>存储时序列化为JSON字符串，执行时由TaskInvoker自动解析和类型转换。
      */
-    @Deprecated
-    private List<? extends Serializable> params;
-
-    /**
-     * 方法参数类型数组，逗号分隔，如: java.lang.String,java.lang.Integer
-     * @deprecated 使用 taskArgs 后无需手动指定，系统自动推断
-     */
-    @Deprecated
-    private String parameterTypes;
-
-    /**
-     * 任务参数（推荐方式）— JSON键值对格式
-     * 示例: {"startTime":"2022-04-01 00:00:00","endTime":"2024-08-01 00:00:00"}
-     *
-     * <p>按位置顺序匹配：JSON值的顺序依次对应方法第1、第2...个参数，
-     * 键名仅作标识用途（不影响实际匹配），系统自动从方法签名推断目标类型。
-     */
-    private Map<String, Object> taskArgs;
+    private Object taskArgs;
 
 
     /**

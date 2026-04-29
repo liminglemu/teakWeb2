@@ -158,29 +158,22 @@ public class DynamicSchedulerConfig implements SmartLifecycle {
 
     /**
      * 预校验：启动时检查 Bean + 方法是否存在
+     *
+     * <p>重构后统一使用 taskArgs JSON 参数格式，不再支持传统的 parameterTypes 模式。
+     * 本方法仅验证方法是否存在，参数匹配由 TaskInvoker 在实际执行时处理。
      */
-    private void validateTask(SysScheduledTask task) throws NoSuchMethodException, ClassNotFoundException {
+    private void validateTask(SysScheduledTask task) throws NoSuchMethodException {
         Object bean = applicationContext.getBean(task.getBeanName());
         Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
         String methodName = task.getMethodName();
-        String paramTypes = task.getParameterTypes();
-
-        if (isNotBlank(paramTypes)) {
-            // 模式1: 传统 parameterTypes — 精确匹配参数类型
-            targetClass.getMethod(methodName,
-                    Arrays.stream(paramTypes.split(","))
-                            .map(String::trim)
-                            .map(t -> {
-                                try { return t.contains(".") ? Class.forName(t) : Class.forName("java.lang." + t); }
-                                catch (ClassNotFoundException e) { throw new TaskExecutionException("任务预校验时参数类型不存在: " + e.getMessage(), e); }
-                            })
-                            .toArray(Class[]::new));
-        } else {
-            // 模式2 / 模式3: taskArgs 或无参 — 按方法名搜索（支持有参方法）
-            Method foundMethod = findAnyMethodByName(targetClass, methodName);
-            log.debug("[{}] 预校验通过: {}({})", task.getTaskName(), foundMethod.getName(),
-                    java.util.Arrays.toString(foundMethod.getParameterTypes()));
-        }
+        
+        // 查找方法（支持重载）
+        Method foundMethod = findAnyMethodByName(targetClass, methodName);
+        log.debug("[{}] 预校验通过: {}({})", task.getTaskName(), foundMethod.getName(),
+                java.util.Arrays.toString(foundMethod.getParameterTypes()));
+        
+        // 如果有 taskArgs，可以进一步验证参数数量（可选）
+        // 实际参数转换和验证由 TaskInvoker 在运行时处理
     }
 
     /**
