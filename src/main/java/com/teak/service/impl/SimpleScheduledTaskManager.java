@@ -177,40 +177,50 @@ public class SimpleScheduledTaskManager implements ScheduledTaskManager {
         }
 
         int totalCount = triggerTimes.size();
-        log.info("[区间补执行] 任务[{}] 共 {} 个触发点，开始异步执行", task.getTaskName(), totalCount);
+        log.info("[区间补执行] 任务[{}] 共 {} 个触发点，开始分批异步执行", task.getTaskName(), totalCount);
 
-        // 5. 异步执行
-        List<CompletableFuture<Void>> futures = new ArrayList<>(totalCount);
-        for (LocalDateTime ft : triggerTimes) {
-            // 局部变量，避免 lambda 捕获问题
-            futures.add(CompletableFuture.runAsync(() -> {
-                try {
-                    log.debug("[区间补执行] 执行 {} 时间点: {}", task.getTaskName(), ft);
-                    taskExecutor.execute(task, TaskExecutor.SOURCE_BACKFILL, ft);
-                } catch (Exception e) {
-                    log.error("[区间补执行] 执行失败: {} {}", task.getTaskName(), ft, e);
-                }
-            }, executorService));
-        }
+        // 5. 分批异步执行，控制并发数避免线程池过载
+        int batchSize = 20; // 每批20个任务
+        int totalBatches = (totalCount + batchSize - 1) / batchSize;
+        List<CompletableFuture<Void>> allFutures = new ArrayList<>(totalCount);
+        
+        for (int batch = 0; batch < totalBatches; batch++) {
+            int start = batch * batchSize;
+            int end = Math.min(start + batchSize, totalCount);
+            List<LocalDateTime> batchTimes = triggerTimes.subList(start, end);
+            
+            log.info("[区间补执行] 任务[{}] 执行第 {}/{} 批，触发点 {}-{}", 
+                    task.getTaskName(), batch + 1, totalBatches, start + 1, end);
 
-        // 6. 等待完成（最多等待30分钟，避免无限阻塞）
-        try {
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(30, TimeUnit.MINUTES);
-        } catch (CompletionException e) {
-            log.error("[区间补执行] 部分任务执行异常: {}", task.getTaskName(), e);
-            throw new RuntimeException("补执行过程中出现异常: " + getRootMessage(e), e);
-        } catch (java.util.concurrent.TimeoutException e) {
-            log.error("[区间补执行] 执行超时(30min): {}, 已触发 {}/{} 个时间点",
-                    task.getTaskName(),
-                    futures.stream().filter(CompletableFuture::isDone).count(),
-                    totalCount);
-            throw new RuntimeException("补执行超时(30分钟)，请分批执行");
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("补执行被中断");
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
+            List<CompletableFuture<Void>> batchFutures = new ArrayList<>(batchTimes.size());
+            for (LocalDateTime ft : batchTimes) {
+                batchFutures.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        log.debug("[区间补执行] 执行 {} 时间点: {}", task.getTaskName(), ft);
+                        taskExecutor.execute(task, TaskExecutor.SOURCE_BACKFILL, ft);
+                    } catch (Exception e) {
+                        log.error("[区间补执行] 执行失败: {} {}", task.getTaskName(), ft, e);
+                    }
+                }, executorService));
+            }
+
+            // 等待当前批次完成后再执行下一批
+            try {
+                CompletableFuture.allOf(batchFutures.toArray(new CompletableFuture[0]))
+                        .get(10, TimeUnit.MINUTES);
+                allFutures.addAll(batchFutures);
+            } catch (CompletionException e) {
+                log.error("[区间补执行] 批次执行异常: {} 第{}批", task.getTaskName(), batch + 1, e);
+                throw new RuntimeException("补执行过程中出现异常: " + getRootMessage(e), e);
+            } catch (java.util.concurrent.TimeoutException e) {
+                log.error("[区间补执行] 批次执行超时(10min): {} 第{}批", task.getTaskName(), batch + 1);
+                throw new RuntimeException("补执行超时，请减小时间区间范围");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("补执行被中断");
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         log.info("[区间补执行] 任务[{}] 全部完成，共 {} 个时间点", task.getTaskName(), totalCount);
