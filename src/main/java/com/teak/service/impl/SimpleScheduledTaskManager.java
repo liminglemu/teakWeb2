@@ -18,13 +18,13 @@ import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.*;
 
 /**
  * 简化版定时任务管理器
@@ -164,7 +164,9 @@ public class SimpleScheduledTaskManager implements ScheduledTaskManager {
 
         // 3. 检查是否为无参方法（简化逻辑，只支持无参）
         if (CharSequenceUtil.isNotBlank(task.getTaskArgs())) {
-            throw new IllegalArgumentException("区间补执行目前只支持无参方法");
+            if (!JSONUtil.parseObj(task.getTaskArgs()).isEmpty()) {
+                throw new IllegalArgumentException("区间补执行目前只支持无参方法");
+            }
         }
 
         // 4. 计算触发时间点
@@ -174,24 +176,44 @@ public class SimpleScheduledTaskManager implements ScheduledTaskManager {
             return new ExecutionResult(0, List.of());
         }
 
-        log.info("[区间补执行] 任务[{}] 共 {} 个触发点", task.getTaskName(), triggerTimes.size());
+        int totalCount = triggerTimes.size();
+        log.info("[区间补执行] 任务[{}] 共 {} 个触发点，开始异步执行", task.getTaskName(), totalCount);
 
         // 5. 异步执行
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-        for (LocalDateTime fireTime : triggerTimes) {
+        List<CompletableFuture<Void>> futures = new ArrayList<>(totalCount);
+        for (LocalDateTime ft : triggerTimes) {
+            // 局部变量，避免 lambda 捕获问题
             futures.add(CompletableFuture.runAsync(() -> {
                 try {
-                    log.debug("[区间补执行] 执行 {} 时间点: {}", task.getTaskName(), fireTime);
-                    taskExecutor.execute(task, TaskExecutor.SOURCE_BACKFILL, fireTime);
+                    log.debug("[区间补执行] 执行 {} 时间点: {}", task.getTaskName(), ft);
+                    taskExecutor.execute(task, TaskExecutor.SOURCE_BACKFILL, ft);
                 } catch (Exception e) {
-                    log.error("[区间补执行] 执行失败: {} {}", task.getTaskName(), fireTime, e);
+                    log.error("[区间补执行] 执行失败: {} {}", task.getTaskName(), ft, e);
                 }
             }, executorService));
         }
 
-        // 6. 等待完成
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        // 6. 等待完成（最多等待30分钟，避免无限阻塞）
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .get(30, TimeUnit.MINUTES);
+        } catch (CompletionException e) {
+            log.error("[区间补执行] 部分任务执行异常: {}", task.getTaskName(), e);
+            throw new RuntimeException("补执行过程中出现异常: " + getRootMessage(e), e);
+        } catch (java.util.concurrent.TimeoutException e) {
+            log.error("[区间补执行] 执行超时(30min): {}, 已触发 {}/{} 个时间点",
+                    task.getTaskName(),
+                    futures.stream().filter(CompletableFuture::isDone).count(),
+                    totalCount);
+            throw new RuntimeException("补执行超时(30分钟)，请分批执行");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("补执行被中断");
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
 
+        log.info("[区间补执行] 任务[{}] 全部完成，共 {} 个时间点", task.getTaskName(), totalCount);
         return new ExecutionResult(triggerTimes.size(), triggerTimes);
     }
 
@@ -261,6 +283,19 @@ public class SimpleScheduledTaskManager implements ScheduledTaskManager {
         taskMapper.updateById(task);
         log.info("[{}] 任务[{}] 状态已改为 {}", action, task.getTaskName(), status);
         refreshScheduledTasks();
+    }
+
+    /**
+     * 从异常链中提取根原因消息
+     */
+    private static String getRootMessage(Throwable e) {
+        Throwable cause = e;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        String msg = cause.getMessage();
+        if (msg != null) return msg;
+        return cause.getClass().getSimpleName();
     }
 
     // ============ 内部类 ============

@@ -64,6 +64,14 @@ public class TaskExecutor {
 
         } catch (Exception e) {
             String errorMsg = e.getMessage();
+            if (errorMsg == null) {
+                errorMsg = e.getClass().getSimpleName();
+                if (e.getCause() != null) {
+                    String causeMsg = e.getCause().getMessage();
+                    errorMsg += " -> " + e.getCause().getClass().getSimpleName()
+                            + (causeMsg != null ? ": " + causeMsg : "");
+                }
+            }
             finishLog(logEntity, startTime, false, errorMsg);
             log.error("[{}][logId={}] 执行失败 | cost={}ms | error={}", taskName, logEntity.getId(),
                     System.currentTimeMillis() - startTime, errorMsg, e);

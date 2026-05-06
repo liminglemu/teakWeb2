@@ -10,11 +10,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+
+@Slf4j
 
 /**
  * 定时任务控制器
@@ -62,9 +65,11 @@ public class SysScheduledTaskController {
             scheduledTaskManager.addAndStartScheduledTask(vo);
             return GlobalResult.success(null, "定时任务 [" + vo.getTaskName() + "] 添加成功，参数自动匹配完成");
         } catch (IllegalArgumentException e) {
+            log.warn("[添加任务] 参数校验失败: taskName={}, error={}", vo.getTaskName(), e.getMessage());
             return GlobalResult.error(e.getMessage());
         } catch (Exception e) {
-            return GlobalResult.error("添加失败: " + e.getMessage());
+            log.error("[添加任务] 异常: taskName={}", vo.getTaskName(), e);
+            return GlobalResult.error("添加失败: " + getErrorMessage(e));
         }
     }
 
@@ -112,9 +117,11 @@ public class SysScheduledTaskController {
             scheduledTaskManager.executeTaskManually(id);
             return GlobalResult.success(null, "任务已触发执行");
         } catch (IllegalArgumentException e) {
+            log.warn("[手动执行] 参数错误: id={}, error={}", id, e.getMessage());
             return GlobalResult.error(e.getMessage());
         } catch (Exception e) {
-            return GlobalResult.error("执行失败: " + e.getMessage());
+            log.error("[手动执行] 异常: id={}", id, e);
+            return GlobalResult.error("执行失败: " + getErrorMessage(e));
         }
     }
 
@@ -127,9 +134,11 @@ public class SysScheduledTaskController {
             scheduledTaskManager.stopTask(id);
             return GlobalResult.success(null, "任务已停止");
         } catch (IllegalArgumentException e) {
+            log.warn("[停止任务] 参数错误: id={}, error={}", id, e.getMessage());
             return GlobalResult.error(e.getMessage());
         } catch (Exception e) {
-            return GlobalResult.error("停止失败: " + e.getMessage());
+            log.error("[停止任务] 异常: id={}", id, e);
+            return GlobalResult.error("停止失败: " + getErrorMessage(e));
         }
     }
 
@@ -140,9 +149,11 @@ public class SysScheduledTaskController {
             scheduledTaskManager.startTask(id);
             return GlobalResult.success(null, "任务已启动");
         } catch (IllegalArgumentException e) {
+            log.warn("[启动任务] 参数错误: id={}, error={}", id, e.getMessage());
             return GlobalResult.error(e.getMessage());
         } catch (Exception e) {
-            return GlobalResult.error("启动失败: " + e.getMessage());
+            log.error("[启动任务] 异常: id={}", id, e);
+            return GlobalResult.error("启动失败: " + getErrorMessage(e));
         }
     }
 
@@ -166,9 +177,18 @@ public class SysScheduledTaskController {
                     String.format("补执行完成: 共触发 %d 次 | 时间点: %s",
                             result.triggerCount(), result.triggeredTimes()));
         } catch (IllegalArgumentException e) {
+            log.warn("[区间补执行] 参数校验失败: id={}, start={}, end={}, error={}", id, startTime, endTime, e.getMessage());
             return GlobalResult.error(e.getMessage());
         } catch (Exception e) {
-            return GlobalResult.error("补执行失败: " + e.getMessage());
+            log.error("[区间补执行] 执行异常: id={}, start={}, end={}", id, startTime, endTime, e);
+            String errorMsg = e.getMessage();
+            if (errorMsg == null) {
+                errorMsg = e.getClass().getSimpleName();
+                if (e.getCause() != null) {
+                    errorMsg += "[" + e.getCause().getClass().getSimpleName() + ": " + e.getCause().getMessage() + "]";
+                }
+            }
+            return GlobalResult.error("补执行失败: " + errorMsg);
         }
     }
 
@@ -204,5 +224,25 @@ public class SysScheduledTaskController {
             return GlobalResult.error("执行记录不存在: ID=" + id);
         }
         return GlobalResult.success(log);
+    }
+
+    // ==================== 工具方法 ====================
+
+    /**
+     * 安全获取异常消息，处理 e.getMessage() 为 null 的情况
+     */
+    private static String getErrorMessage(Exception e) {
+        String msg = e.getMessage();
+        if (msg != null) return msg;
+        StringBuilder sb = new StringBuilder(e.getClass().getSimpleName());
+        if (e.getCause() != null) {
+            sb.append(" [Caused by: ").append(e.getCause().getClass().getSimpleName());
+            String causeMsg = e.getCause().getMessage();
+            if (causeMsg != null) {
+                sb.append(": ").append(causeMsg);
+            }
+            sb.append("]");
+        }
+        return sb.toString();
     }
 }

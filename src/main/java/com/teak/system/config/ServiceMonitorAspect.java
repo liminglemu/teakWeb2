@@ -1,7 +1,6 @@
 package com.teak.system.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -24,11 +23,14 @@ import java.util.Map;
  */
 @Aspect
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class ServiceMonitorAspect {
 
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
+
+    public ServiceMonitorAspect(ObjectMapper mapper) {
+        this.mapper = mapper;
+    }
 
 
     @Pointcut("execution(public * com.teak.service.*.*(..))")
