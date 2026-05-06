@@ -1,7 +1,7 @@
 package com.teak.system.utils;
 
-import lombok.extern.slf4j.Slf4j;
 import com.teak.system.exception.TeakException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.lang.management.ManagementFactory;

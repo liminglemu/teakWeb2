@@ -2,10 +2,6 @@ package com.teak.model.vo;
 
 import lombok.Data;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
-
 /**
  * 定时任务VO（简化版）
  */

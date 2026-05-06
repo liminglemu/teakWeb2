@@ -2,7 +2,6 @@ package com.teak.service.impl;
 
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.ObjectUtil;
-import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.teak.core.task.TaskInvoker;
 import com.teak.mapper.SysScheduledTaskMapper;
@@ -10,6 +9,7 @@ import com.teak.model.SysScheduledTask;
 import com.teak.model.vo.SysScheduledTaskVo;
 import com.teak.service.ScheduledTaskManager;
 import com.teak.system.event.TaskRefreshEvent;
+import com.teak.system.executor.TaskExecutor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
@@ -23,7 +23,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -47,6 +46,7 @@ public class SimpleScheduledTaskManager implements ScheduledTaskManager {
     private final ApplicationContext applicationContext;
     private final TaskInvoker taskInvoker;
     private final ExecutorService executorService;
+    private final TaskExecutor taskExecutor;
 
     @Override
     public List<SysScheduledTask> getAllTasks() {
@@ -134,7 +134,7 @@ public class SimpleScheduledTaskManager implements ScheduledTaskManager {
 
         CompletableFuture.runAsync(() -> {
             try {
-                taskInvoker.invoke(task.getBeanName(), task.getMethodName(), task.getTaskArgs());
+                taskExecutor.execute(task, TaskExecutor.SOURCE_MANUAL, LocalDateTime.now());
                 log.info("[手动执行] 任务执行完成: {}", task.getTaskName());
             } catch (Exception e) {
                 log.error("[手动执行] 任务执行失败: {}", task.getTaskName(), e);
@@ -163,7 +163,7 @@ public class SimpleScheduledTaskManager implements ScheduledTaskManager {
         SysScheduledTask task = findTaskById(taskId);
 
         // 3. 检查是否为无参方法（简化逻辑，只支持无参）
-        if (StrUtil.isNotBlank(task.getTaskArgs())) {
+        if (CharSequenceUtil.isNotBlank(task.getTaskArgs())) {
             throw new IllegalArgumentException("区间补执行目前只支持无参方法");
         }
 
@@ -182,7 +182,7 @@ public class SimpleScheduledTaskManager implements ScheduledTaskManager {
             futures.add(CompletableFuture.runAsync(() -> {
                 try {
                     log.debug("[区间补执行] 执行 {} 时间点: {}", task.getTaskName(), fireTime);
-                    taskInvoker.invoke(task.getBeanName(), task.getMethodName(), task.getTaskArgs());
+                    taskExecutor.execute(task, TaskExecutor.SOURCE_BACKFILL, fireTime);
                 } catch (Exception e) {
                     log.error("[区间补执行] 执行失败: {} {}", task.getTaskName(), fireTime, e);
                 }

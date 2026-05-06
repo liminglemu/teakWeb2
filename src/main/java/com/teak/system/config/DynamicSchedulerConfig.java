@@ -4,7 +4,6 @@ import com.teak.mapper.SysScheduledTaskMapper;
 import com.teak.model.SysScheduledTask;
 import com.teak.system.event.TaskRefreshEvent;
 import com.teak.system.executor.TaskExecutor;
-import com.teak.system.exception.TaskExecutionException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.framework.AopProxyUtils;
@@ -27,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * 动态定时任务调度器 — 纯调度职责
