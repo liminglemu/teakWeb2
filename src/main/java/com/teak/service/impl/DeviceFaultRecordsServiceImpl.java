@@ -1,4 +1,4 @@
-package com.teak.service.serviceImpl;
+package com.teak.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;

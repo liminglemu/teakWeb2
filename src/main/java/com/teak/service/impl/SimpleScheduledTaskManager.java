@@ -9,6 +9,7 @@ import com.teak.model.SysScheduledTask;
 import com.teak.model.vo.SysScheduledTaskVo;
 import com.teak.service.ScheduledTaskManager;
 import com.teak.system.event.TaskRefreshEvent;
+import com.teak.system.exception.TaskExecutionException;
 import com.teak.system.executor.TaskExecutor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -211,15 +212,13 @@ public class SimpleScheduledTaskManager implements ScheduledTaskManager {
                 allFutures.addAll(batchFutures);
             } catch (CompletionException e) {
                 log.error("[区间补执行] 批次执行异常: {} 第{}批", task.getTaskName(), batch + 1, e);
-                throw new RuntimeException("补执行过程中出现异常: " + getRootMessage(e), e);
-            } catch (java.util.concurrent.TimeoutException e) {
+                throw new TaskExecutionException("补执行过程中出现异常: " + getRootMessage(e), e);
+            } catch (TimeoutException | ExecutionException e) {
                 log.error("[区间补执行] 批次执行超时(10min): {} 第{}批", task.getTaskName(), batch + 1);
-                throw new RuntimeException("补执行超时，请减小时间区间范围");
+                throw new TaskExecutionException("补执行超时，请减小时间区间范围");
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException("补执行被中断");
-            } catch (ExecutionException e) {
-                throw new RuntimeException(e);
+                throw new TaskExecutionException("补执行被中断");
             }
         }
 

@@ -1,4 +1,4 @@
-package com.teak.service.serviceImpl.scheduledTesting;
+package com.teak.service.impl;
 
 import com.teak.system.executor.TaskExecuteContext;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Component
 @Slf4j
 public class TestScheduledTask {
-    
+
     /**
      * 无参数的定时任务方法
      */
@@ -22,13 +22,14 @@ public class TestScheduledTask {
         log.info("任务名称：{}，触发时间：{}", taskName, fireTime);
         log.info("执行简单定时任务，当前时间: {}", LocalDateTime.now());
     }
-    
+
     /**
      * 带参数的定时任务方法
+     *
      * @param message 消息内容
-     * @param count 执行次数
+     * @param count   执行次数
      */
     public void executeTaskWithParameters(String message, Integer count) {
-        log.info("执行带参数的定时任务: message={}, count={}, 当前时间: {}", message, count, LocalDateTime.now());
+        log.info("执行带参数的定时任务: message={}, count={}, 执行时间: {},当前时间: {}", message, count, TaskExecuteContext.getFireTime(), LocalDateTime.now());
     }
 }
