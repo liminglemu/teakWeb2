@@ -1,0 +1,105 @@
+server:
+  port: 8001
+  address: 0.0.0.0
+  tomcat:
+    threads:
+      min-spare: 10
+      max: 200
+
+# 日志配置 - 开启RabbitMQ调试
+logging:
+  level:
+    org.springframework.amqp: DEBUG
+    com.teak.rabbitmq: DEBUG
+
+spring:
+  main:
+    lazy-initialization: true # 启用懒加载
+  aop:
+    proxy-target-class: true # 使用CGLib代理（Spring 3.x+推荐）
+  datasource:
+    username: root
+    password: Root@123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/MySqlDB?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20 # 最大连接数
+      leak-detection-threshold: 5000 # 检测泄露时间
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: Redis@123456
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: 2000ms
+
+  # RabbitMQ 配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+    # 发布确认机制
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    # 模板配置
+    template:
+      retry:
+        enabled: true
+    # 监听器配置 - 手动确认（支持死信队列）
+    listener:
+      simple:
+        acknowledge-mode: manual  # 手动确认
+        prefetch: 1
+        retry:
+          enabled: true
+          initial-interval: 3000ms
+          max-interval: 30000ms
+          multiplier: 2
+
+
+
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    #    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl  生成环境使用避免大量日志
+    default-executor-type: reuse # 重用预处理语句
+    cache-enabled: true
+    local-cache-scope: session
+
+# SpringDoc OpenAPI 配置
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+# Spring Boot Actuator 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    enable:
+      jvm:
+        memory:
+          used: true

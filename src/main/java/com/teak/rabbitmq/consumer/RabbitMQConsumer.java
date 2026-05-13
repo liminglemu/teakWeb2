@@ -339,7 +339,7 @@ public class RabbitMQConsumer {
      */
     private void processMessage(String message) {
         // 模拟业务逻辑
-        deviceFaultRecordsService.getDeviceFaultRecords("2024-09-01 00:00:00", "2024-12-30 00:00:00");
+//        deviceFaultRecordsService.getDeviceFaultRecords("2024-09-01 00:00:00", "2024-12-30 00:00:00");
         log.info("处理消息: {}", message);
     }
 }

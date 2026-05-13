@@ -18,14 +18,25 @@ server:
       timeout: 30m                            # Session 超时时间（分钟）
 
 # ============================================================
+# 2. 日志配置 (Logging Configuration)
+# 说明：日志配置已在 logback-spring.xml 中完整定义，此处无需重复配置
+#       logback-spring.xml 支持多环境（dev/test/prod），自动根据 spring.profiles.active 生效
+# ============================================================
+# 如需覆盖 logback-spring.xml 中的配置，可在此处添加特定配置
+# 例如：临时调试某个包
+# logging:
+#   level:
+#     com.teak.specific.package: TRACE
+
+# ============================================================
 # 3. Spring 核心配置 (Spring Core Configuration)
 # ============================================================
 spring:
-  
+
   # 核心设置
   main:
     lazy-initialization: true                 # 启用懒加载（延迟初始化Bean，加快启动速度）
-  
+
   # 应用基本信息
   application:
     name: teakWeb2                           # 应用名称（用于服务注册、监控等）
@@ -107,11 +118,11 @@ spring:
     username: guest                          # 用户名（默认guest）
     password: guest                          # 密码（默认guest）
     virtual-host: /                          # 虚拟主机（隔离不同应用）
-    
+
     # 生产者确认机制配置（全局配置，作用于所有RabbitTemplate）
     # 注意：publisher-returns 已在 RabbitMQConfig.java 中通过 rabbitTemplate.setMandatory(true) 配置
     publisher-confirm-type: correlated        # 启用发布确认（correlated：确认到达交换机）
-    
+
     # RabbitTemplate 重试配置（全局配置，作用于所有RabbitTemplate）
     template:
       retry:
@@ -120,16 +131,10 @@ spring:
         max-interval: 10000ms                # 最大重试间隔
         multiplier: 2.0                      # 重试间隔乘数（每次重试间隔倍数）
 
-    # 监听器配置 - 手动确认（支持死信队列）
-    listener:
-      simple:
-        acknowledge-mode: manual  # 手动确认
-        prefetch: 1
-        retry:
-          enabled: true
-          initial-interval: 3000ms
-          max-interval: 30000ms
-          multiplier: 2
+    # 注意：监听器配置已在 RabbitMQConfig.java 中通过 @Bean 定义容器工厂：
+    #   - lowPrefetchFactory: prefetch=1, manual ack（适用于处理慢、需严格有序的场景）
+    #   - highPrefetchFactory: prefetch=10, manual ack（适用于处理快、高吞吐场景）
+    #   使用时通过 @RabbitListener(containerFactory = "xxx") 指定
 
   # ============================================================
   # 8. 异步任务配置 (Async Task Configuration)
@@ -162,7 +167,7 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # SQL日志实现（输出到控制台）
     # 生产环境建议使用：org.apache.ibatis.logging.nologging.NoLoggingImpl（关闭SQL日志）
     # 注意：cache-enabled 和 lazyLoadingEnabled 已在 MybatisConfig.java 中配置
-    
+
     map-underscore-to-camel-case: true           # 自动下划线转驼峰命名（create_time -> createTime）
     auto-mapping-behavior: full                  # 自动映射行为（full：自动映射任意列）
     default-executor-type: reuse                # 执行器类型（reuse：重用预处理语句）
@@ -173,6 +178,22 @@ mybatis-plus:
 
   global-config:
     db-config:
+      # ========== ID生成策略 ==========
+      # 注意：项目使用自定义 IdWorker.java 生成雪花算法ID（通过 @SnowflakeAlgorithm 注解触发）
+      # 因此此处无需配置 id-type: ASSIGN_ID（MyBatis-Plus内置雪花算法）
+      # 如需使用MyBatis-Plus内置雪花算法，取消下方注释并删除自定义IdWorker相关代码
+      # id-type: ASSIGN_ID
+      # worker-id: 1
+      # datacenter-id: 1
+
+      # ========== 逻辑删除 ==========
+      # 注意：项目使用 @TableLogic 注解配置逻辑删除（见 BaseModel.java）
+      # 此处无需重复配置 logic-delete-field/logic-delete-value
+      # 如需全局配置逻辑删除（不推荐，灵活性差），取消下方注释并修改实体类
+      # logic-delete-field: isDeleted
+      # logic-delete-value: 1
+      # logic-not-delete-value: 0
+
       # ========== 字段策略 ==========
       insert-strategy: NOT_NULL                 # 插入策略（NOT_NULL：null值不插入）
       update-strategy: NOT_NULL                 # 更新策略（NOT_NULL：null值不更新）

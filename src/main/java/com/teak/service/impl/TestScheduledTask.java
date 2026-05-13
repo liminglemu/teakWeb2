@@ -32,11 +32,11 @@ public class TestScheduledTask {
         String taskName = TaskExecuteContext.getTaskName();
         LocalDateTime fireTime = TaskExecuteContext.getFireTime();
         log.info("任务名称: {},触发时间: {},执行简单定时任务，当前时间: {}", taskName, fireTime, LocalDateTime.now());
-        /*for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10; i++) {
             CompletableFuture.runAsync(() -> {
                 rabbitTemplate.convertAndSend(RabbitMQConfig.HELLO_QUEUE, taskName + "," + fireTime);
             }, executorService);
-        }*/
+        }
     }
 
     /**

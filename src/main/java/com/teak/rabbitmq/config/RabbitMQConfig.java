@@ -1,5 +1,6 @@
 package com.teak.rabbitmq.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
@@ -18,6 +19,7 @@ import java.util.Map;
  */
 @Configuration
 @EnableRabbit  // 启用RabbitMQ监听器支持
+@Slf4j
 public class RabbitMQConfig {
 
     // ==================== 1. Hello World 简单模式 ====================
@@ -71,6 +73,7 @@ public class RabbitMQConfig {
 
     /**
      * 配置RabbitTemplate使用JSON转换器
+     * 配置生产者确认机制（confirmCallback和returnsCallback）
      */
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
@@ -79,6 +82,27 @@ public class RabbitMQConfig {
         
         // 设置Mandatory，确保消息投递失败时返回
         rabbitTemplate.setMandatory(true);
+        
+        // 设置生产者确认回调（消息到达交换机时触发）
+        rabbitTemplate.setConfirmCallback((correlationData, ack, cause) -> {
+            if (ack) {
+                log.info("消息成功到达交换机: {}", correlationData);
+            } else {
+                log.error("消息到达交换机失败: {}, 原因: {}", correlationData, cause);
+                // 这里可以添加重试逻辑或记录到数据库
+            }
+        });
+        
+        // 设置消息返回回调（消息路由失败时触发）
+        rabbitTemplate.setReturnsCallback(returned -> {
+            log.error("消息路由失败: {}, replyCode: {}, replyText: {}, exchange: {}, routingKey: {}",
+                    returned.getMessage(),
+                    returned.getReplyCode(),
+                    returned.getReplyText(),
+                    returned.getExchange(),
+                    returned.getRoutingKey());
+            // 这里可以添加重试逻辑或记录到数据库
+        });
         
         return rabbitTemplate;
     }
