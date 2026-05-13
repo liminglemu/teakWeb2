@@ -157,6 +157,12 @@
             <artifactId>hutool-all</artifactId>
             <version>5.8.40</version>
         </dependency>
+
+        <!-- RabbitMQ 依赖 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
     </dependencies>
 
     <!-- 构建配置 -->
